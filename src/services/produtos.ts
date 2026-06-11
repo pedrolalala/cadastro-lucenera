@@ -1,0 +1,64 @@
+import { supabase } from '@/lib/supabase/client'
+import { Database } from '@/lib/supabase/types'
+
+type Produto = Database['public']['Tables']['produtos']['Row']
+type ProdutoInsert = Database['public']['Tables']['produtos']['Insert']
+type ProdutoUpdate = Database['public']['Tables']['produtos']['Update']
+
+export async function getProdutos() {
+  const { data, error } = await supabase.from('produtos').select('*').order('nome')
+  if (error) throw error
+  return data
+}
+
+export async function getProduto(id: string) {
+  const { data, error } = await supabase.from('produtos').select('*').eq('id', id).single()
+  if (error) throw error
+  return data
+}
+
+export async function checkCodigoExists(codigo: number, excludeId?: string | null) {
+  let query = supabase.from('produtos').select('id').eq('codigo_produto', codigo)
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data.length > 0
+}
+
+export async function createProduto(produto: ProdutoInsert) {
+  const { data, error } = await supabase
+    .from('produtos')
+    .insert([{ ...produto, ativo: true }])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateProduto(id: string, produto: ProdutoUpdate) {
+  const { data, error } = await supabase
+    .from('produtos')
+    .update(produto)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteProduto(id: string) {
+  const { error } = await supabase.from('produtos').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function getFornecedores() {
+  const { data, error } = await supabase
+    .from('contatos')
+    .select('id, nome, razao_social')
+    .eq('tipo', 'fornecedor')
+    .order('nome')
+  if (error) throw error
+  return data
+}

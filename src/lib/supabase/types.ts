@@ -7651,6 +7651,8 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "authenticated_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+//   Policy "authenticated_select_contatos" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "authenticated_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
 //   Policy "contatos_delete_admin" (DELETE, PERMISSIVE) roles={authenticated}
@@ -7971,7 +7973,14 @@ export const Constants = {
 //   Policy "authenticated_all_projetos" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+//   Policy "authenticated_delete_projetos" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "authenticated_insert_projetos" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "authenticated_select_projetos" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_update_projetos" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
 //     WITH CHECK: true
 //   Policy "projetos_delete_admin" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::usuario_role, 'gerente'::usuario_role])))))
@@ -8066,6 +8075,8 @@ export const Constants = {
 //   Policy "Permitir leitura para usuarios autenticados" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 // Table: usuarios
+//   Policy "authenticated_select_usuarios" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "usuarios_delete_admin" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::usuario_role))))
 //   Policy "usuarios_insert_admin" (INSERT, PERMISSIVE) roles={authenticated}

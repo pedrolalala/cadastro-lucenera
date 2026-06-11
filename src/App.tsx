@@ -11,6 +11,7 @@ import NotFound from './pages/NotFound'
 import { DataProvider } from './stores/use-data-store'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import Login from './pages/Login'
+import { PecaModal } from './components/modals/PecaModal'
 
 const ProtectedRoutes = () => {
   const { user, loading } = useAuth()
@@ -26,15 +27,18 @@ const ProtectedRoutes = () => {
   if (!user) return <Login />
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Index />} />
-        <Route path="/clientes" element={<Clientes />} />
-        <Route path="/projetos" element={<Projetos />} />
-        <Route path="/pecas" element={<Pecas />} />
-      </Route>
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/clientes" element={<Clientes />} />
+          <Route path="/projetos" element={<Projetos />} />
+          <Route path="/pecas" element={<Pecas />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <PecaModal />
+    </>
   )
 }
 

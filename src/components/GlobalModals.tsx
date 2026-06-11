@@ -8,7 +8,6 @@ import {
 import { useStore } from '@/lib/store'
 import { ClientForm } from './forms/ClientForm'
 import { ProjectForm } from './forms/ProjectForm'
-import { PecaForm } from './forms/PecaForm'
 
 export function GlobalModals() {
   const { modals, setModal } = useStore()
@@ -34,16 +33,6 @@ export function GlobalModals() {
             </DialogDescription>
           </DialogHeader>
           <ProjectForm onSuccess={() => setModal('projeto', false)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={modals.peca} onOpenChange={(v) => setModal('peca', v)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Peça</DialogTitle>
-            <DialogDescription>Adicione uma nova peça ao catálogo de inventário.</DialogDescription>
-          </DialogHeader>
-          <PecaForm onSuccess={() => setModal('peca', false)} />
         </DialogContent>
       </Dialog>
     </>
