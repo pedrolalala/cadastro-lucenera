@@ -1,12 +1,15 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react'
 import { Cliente, Projeto, Peca, ActivityItem } from '@/types'
-import { MOCK_CLIENTES, MOCK_PROJETOS, MOCK_PECAS, MOCK_ACTIVITY } from '@/lib/mock-data'
+import { MOCK_PROJETOS, MOCK_PECAS, MOCK_ACTIVITY } from '@/lib/mock-data'
 import { toast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
 
 type ModalType = 'cliente' | 'projeto' | 'peca' | null
 
 interface DataStoreContextType {
   clientes: Cliente[]
+  clientesLoading: boolean
+  fetchClientes: () => Promise<void>
   projetos: Projeto[]
   pecas: Peca[]
   activities: ActivityItem[]
@@ -19,7 +22,7 @@ interface DataStoreContextType {
 
   // Actions
   saveCliente: (cliente: Omit<Cliente, 'id' | 'createdAt'>, id?: string | null) => Promise<void>
-  deleteCliente: (id: string) => void
+  deleteCliente: (id: string) => Promise<void>
 
   saveProjeto: (projeto: Omit<Projeto, 'id' | 'createdAt'>, id?: string | null) => void
   deleteProjeto: (id: string) => void
@@ -31,17 +34,9 @@ interface DataStoreContextType {
 const DataStoreContext = createContext<DataStoreContextType | undefined>(undefined)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [clientes, setClientes] = useState<Cliente[]>(() => {
-    return MOCK_CLIENTES.map((c) => ({
-      ...c,
-      tipo: 'Cliente',
-      nome: c.name || '',
-      tipo_pessoa: 'Jurídica' as const,
-      ativo: c.status === 'Ativo',
-      telefone: c.phone || '',
-      nome_empresa: c.company || '',
-    })) as Cliente[]
-  })
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clientesLoading, setClientesLoading] = useState(false)
+
   const [projetos, setProjetos] = useState<Projeto[]>(MOCK_PROJETOS)
   const [pecas, setPecas] = useState<Peca[]>(MOCK_PECAS)
   const [activities, setActivities] = useState<ActivityItem[]>(MOCK_ACTIVITY)
@@ -78,35 +73,98 @@ export function DataProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const fetchClientes = useCallback(async () => {
+    setClientesLoading(true)
+    const { data, error } = await supabase
+      .from('contatos')
+      .select('*')
+      .eq('tipo', 'cliente')
+      .order('nome', { ascending: true })
+
+    if (data && !error) {
+      const mapped = data.map((d) => ({
+        id: d.id,
+        tipo: 'Cliente',
+        nome: d.nome,
+        name: d.nome,
+        tipo_pessoa: d.tipo_pessoa || 'Física',
+        cpf: d.cpf,
+        rg: d.rg,
+        data_nascimento: d.data_nascimento,
+        cnpj: d.cnpj,
+        razao_social: d.razao_social,
+        nome_empresa: d.nome_empresa,
+        company: d.nome_empresa,
+        email: d.email,
+        email_financeiro: d.email_financeiro,
+        telefone: d.telefone,
+        phone: d.telefone,
+        celular: d.celular,
+        endereco: d.endereco,
+        bairro: d.bairro,
+        cep: d.cep,
+        cidade: d.cidade,
+        estado: d.estado,
+        observacoes: d.observacoes,
+        ativo: d.ativo !== false, // default true
+        status: d.ativo !== false ? 'Ativo' : 'Inativo',
+        createdAt: d.created_at || new Date().toISOString(),
+      })) as Cliente[]
+      setClientes(mapped)
+    } else if (error) {
+      console.error('Error fetching clientes:', error)
+    }
+    setClientesLoading(false)
+  }, [])
+
   const saveCliente = async (data: Omit<Cliente, 'id' | 'createdAt'>, id?: string | null) => {
-    // Simulate Supabase integration delay & database constraints
-    await new Promise((resolve) => setTimeout(resolve, 600))
-
-    const duplicate = clientes.find((c) => {
-      if (c.id === id) return false
-      if (data.tipo_pessoa === 'Física' && data.cpf && c.cpf === data.cpf) return true
-      if (data.tipo_pessoa === 'Jurídica' && data.cnpj && c.cnpj === data.cnpj) return true
-      return false
-    })
-
-    if (duplicate) {
-      throw new Error(data.tipo_pessoa === 'Física' ? 'CPF já cadastrado.' : 'CNPJ já cadastrado.')
+    const payload = {
+      nome: data.nome || data.name || '',
+      tipo_pessoa: data.tipo_pessoa || 'Física',
+      cpf: data.cpf || null,
+      rg: data.rg || null,
+      data_nascimento: data.data_nascimento || null,
+      cnpj: data.cnpj || null,
+      razao_social: data.razao_social || null,
+      nome_empresa: data.nome_empresa || data.company || null,
+      email: data.email || null,
+      email_financeiro: data.email_financeiro || null,
+      telefone: data.telefone || data.phone || null,
+      celular: data.celular || null,
+      endereco: data.endereco || null,
+      bairro: data.bairro || null,
+      cep: data.cep || null,
+      cidade: data.cidade || null,
+      estado: data.estado || null,
+      observacoes: data.observacoes || null,
+      ativo: data.ativo ?? data.status === 'Ativo',
+      tipo: 'cliente' as const,
     }
 
     if (id) {
-      setClientes((prev) => prev.map((c) => (c.id === id ? { ...c, ...data } : c)))
-      addActivity('Cliente', 'Atualizado', data.nome || data.name)
+      const { error } = await supabase.from('contatos').update(payload).eq('id', id)
+      if (error) throw new Error(error.message)
+      addActivity('Cliente', 'Atualizado', payload.nome)
     } else {
-      setClientes((prev) => [
-        { ...data, id: Math.random().toString(), createdAt: new Date().toISOString() },
-        ...prev,
-      ])
-      addActivity('Cliente', 'Criado', data.nome || data.name)
+      const { error } = await supabase.from('contatos').insert([payload])
+      if (error) throw new Error(error.message)
+      addActivity('Cliente', 'Criado', payload.nome)
     }
+
+    await fetchClientes()
   }
 
-  const deleteCliente = (id: string) => {
-    setClientes((prev) => prev.filter((c) => c.id !== id))
+  const deleteCliente = async (id: string) => {
+    const { error } = await supabase.from('contatos').delete().eq('id', id)
+    if (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível remover o cliente.',
+        variant: 'destructive',
+      })
+      return
+    }
+    await fetchClientes()
     toast({ title: 'Removido', description: 'Cliente removido com sucesso.' })
   }
 
@@ -156,6 +214,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     <DataStoreContext.Provider
       value={{
         clientes,
+        clientesLoading,
+        fetchClientes,
         projetos,
         pecas,
         activities,

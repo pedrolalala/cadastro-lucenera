@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -22,20 +22,21 @@ import useDataStore from '@/stores/use-data-store'
 import { ClienteDetailsSheet } from '@/components/clientes/ClienteDetailsSheet'
 
 export default function Clientes() {
-  const { clientes, setActiveModal, deleteCliente } = useDataStore()
+  const { clientes, clientesLoading, fetchClientes, setActiveModal, deleteCliente } = useDataStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'Todos' | 'Física' | 'Jurídica'>('Todos')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
 
+  useEffect(() => {
+    fetchClientes()
+  }, [fetchClientes])
+
   const filtered = useMemo(() => {
     return clientes.filter((c) => {
-      if (c.tipo !== 'Cliente') return false
       const term = searchTerm.toLowerCase()
       const matchesSearch =
-        c.nome?.toLowerCase().includes(term) ||
-        c.name?.toLowerCase().includes(term) ||
-        c.email?.toLowerCase().includes(term)
+        c.nome?.toLowerCase().includes(term) || c.email?.toLowerCase().includes(term)
       const matchesTipo = tipoFiltro === 'Todos' || c.tipo_pessoa === tipoFiltro
       return matchesSearch && matchesTipo
     })
@@ -51,10 +52,10 @@ export default function Clientes() {
     setActiveModal('cliente', id)
   }
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
-      deleteCliente(id)
+      await deleteCliente(id)
     }
   }
 
@@ -107,7 +108,19 @@ export default function Clientes() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {clientesLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                  Carregando clientes...
+                </TableCell>
+              </TableRow>
+            ) : clientes.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                  Nenhum cliente cadastrado. Crie um novo cliente para começar.
+                </TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-slate-500">
                   Nenhum cliente encontrado.
@@ -135,7 +148,7 @@ export default function Clientes() {
                     {c.email || '-'}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-slate-600">
-                    {c.celular || c.telefone || c.phone || '-'}
+                    {c.telefone || c.celular || c.phone || '-'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

@@ -1,35 +1,5 @@
 import { Cliente, Projeto, Peca, ActivityItem } from '@/types'
 
-export const MOCK_CLIENTES: Cliente[] = [
-  {
-    id: 'c1',
-    name: 'João Silva',
-    email: 'joao@techcorp.br',
-    phone: '(11) 98888-1111',
-    company: 'TechCorp Brasil',
-    status: 'Ativo',
-    createdAt: new Date(Date.now() - 10000000).toISOString(),
-  },
-  {
-    id: 'c2',
-    name: 'Maria Souza',
-    email: 'maria@industrias.com',
-    phone: '(21) 97777-2222',
-    company: 'Indústrias Souza',
-    status: 'Ativo',
-    createdAt: new Date(Date.now() - 20000000).toISOString(),
-  },
-  {
-    id: 'c3',
-    name: 'Carlos Santos',
-    email: 'carlos@global.com',
-    phone: '(31) 96666-3333',
-    company: 'Global Logistics',
-    status: 'Inativo',
-    createdAt: new Date(Date.now() - 30000000).toISOString(),
-  },
-]
-
 export const MOCK_PROJETOS: Projeto[] = [
   {
     id: 'p1',
