@@ -9,25 +9,47 @@ import Projetos from './pages/Projetos'
 import Pecas from './pages/Pecas'
 import NotFound from './pages/NotFound'
 import { DataProvider } from './stores/use-data-store'
+import { AuthProvider, useAuth } from './hooks/use-auth'
+import Login from './pages/Login'
+
+const ProtectedRoutes = () => {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  if (!user) return <Login />
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Index />} />
+        <Route path="/clientes" element={<Clientes />} />
+        <Route path="/projetos" element={<Projetos />} />
+        <Route path="/pecas" element={<Pecas />} />
+      </Route>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  )
+}
 
 const App = () => (
-  <DataProvider>
-    <BrowserRouter>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/projetos" element={<Projetos />} />
-            <Route path="/pecas" element={<Pecas />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
-    </BrowserRouter>
-  </DataProvider>
+  <AuthProvider>
+    <DataProvider>
+      <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <ProtectedRoutes />
+        </TooltipProvider>
+      </BrowserRouter>
+    </DataProvider>
+  </AuthProvider>
 )
 
 export default App
