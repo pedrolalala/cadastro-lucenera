@@ -18,7 +18,7 @@ interface DataStoreContextType {
   closeModal: () => void
 
   // Actions
-  saveCliente: (cliente: Omit<Cliente, 'id' | 'createdAt'>, id?: string | null) => void
+  saveCliente: (cliente: Omit<Cliente, 'id' | 'createdAt'>, id?: string | null) => Promise<void>
   deleteCliente: (id: string) => void
 
   saveProjeto: (projeto: Omit<Projeto, 'id' | 'createdAt'>, id?: string | null) => void
@@ -31,7 +31,17 @@ interface DataStoreContextType {
 const DataStoreContext = createContext<DataStoreContextType | undefined>(undefined)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [clientes, setClientes] = useState<Cliente[]>(MOCK_CLIENTES)
+  const [clientes, setClientes] = useState<Cliente[]>(() => {
+    return MOCK_CLIENTES.map((c) => ({
+      ...c,
+      tipo: 'Cliente',
+      nome: c.name || '',
+      tipo_pessoa: 'Jurídica' as const,
+      ativo: c.status === 'Ativo',
+      telefone: c.phone || '',
+      nome_empresa: c.company || '',
+    })) as Cliente[]
+  })
   const [projetos, setProjetos] = useState<Projeto[]>(MOCK_PROJETOS)
   const [pecas, setPecas] = useState<Peca[]>(MOCK_PECAS)
   const [activities, setActivities] = useState<ActivityItem[]>(MOCK_ACTIVITY)
@@ -68,20 +78,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  const saveCliente = (data: Omit<Cliente, 'id' | 'createdAt'>, id?: string | null) => {
+  const saveCliente = async (data: Omit<Cliente, 'id' | 'createdAt'>, id?: string | null) => {
+    // Simulate Supabase integration delay & database constraints
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    const duplicate = clientes.find((c) => {
+      if (c.id === id) return false
+      if (data.tipo_pessoa === 'Física' && data.cpf && c.cpf === data.cpf) return true
+      if (data.tipo_pessoa === 'Jurídica' && data.cnpj && c.cnpj === data.cnpj) return true
+      return false
+    })
+
+    if (duplicate) {
+      throw new Error(data.tipo_pessoa === 'Física' ? 'CPF já cadastrado.' : 'CNPJ já cadastrado.')
+    }
+
     if (id) {
       setClientes((prev) => prev.map((c) => (c.id === id ? { ...c, ...data } : c)))
-      addActivity('Cliente', 'Atualizado', data.name)
-      toast({ title: 'Sucesso', description: 'Cliente atualizado com sucesso.' })
+      addActivity('Cliente', 'Atualizado', data.nome || data.name)
     } else {
       setClientes((prev) => [
         { ...data, id: Math.random().toString(), createdAt: new Date().toISOString() },
         ...prev,
       ])
-      addActivity('Cliente', 'Criado', data.name)
-      toast({ title: 'Sucesso', description: 'Cliente cadastrado com sucesso!' })
+      addActivity('Cliente', 'Criado', data.nome || data.name)
     }
-    closeModal()
   }
 
   const deleteCliente = (id: string) => {
