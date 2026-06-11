@@ -81,7 +81,7 @@ BEGIN
       v_user_id, 
       '1', 
       'Estudo Inicial', 
-      CURRENT_DATE::text, 
+      CURRENT_DATE, 
       'São Paulo', 
       'SP', 
       '{"tipo": "Residential"}', 
