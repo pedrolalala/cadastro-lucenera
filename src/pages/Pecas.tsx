@@ -39,7 +39,12 @@ import { Database } from '@/lib/supabase/types'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
-type Produto = Database['public']['Tables']['produtos']['Row']
+type ProdutoRow = Database['public']['Tables']['produtos']['Row']
+type Produto = ProdutoRow & {
+  marca?: { nome: string } | null
+  fornecedor?: { nome: string } | null
+  categoria_rel?: { nome: string } | null
+}
 
 export default function Pecas() {
   const { activeModal, setActiveModal } = useDataStore()
@@ -56,7 +61,7 @@ export default function Pecas() {
     setLoading(true)
     try {
       const data = await getProdutos()
-      setProdutos(data)
+      setProdutos(data as Produto[])
     } catch (e) {
       toast({ title: 'Erro', description: 'Falha ao carregar as peças.', variant: 'destructive' })
     } finally {
@@ -91,15 +96,19 @@ export default function Pecas() {
   }
 
   const categorias = Array.from(
-    new Set(produtos.map((p) => p.categoria).filter(Boolean)),
+    new Set(produtos.map((p) => p.categoria_rel?.nome || p.categoria).filter(Boolean)),
   ) as string[]
 
   const filtered = produtos.filter((p) => {
     const matchSearch =
       searchTerm === '' ||
       p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(p.codigo_produto || '').includes(searchTerm)
-    const matchCat = filterCategoria === 'todas' || p.categoria === filterCategoria
+      String(p.codigo_produto || '').includes(searchTerm) ||
+      String(p.sku || '')
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    const catName = p.categoria_rel?.nome || p.categoria || ''
+    const matchCat = filterCategoria === 'todas' || catName === filterCategoria
     return matchSearch && matchCat
   })
 
@@ -127,7 +136,7 @@ export default function Pecas() {
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Buscar por código ou nome..."
+            placeholder="Buscar por código, nome ou SKU..."
             className="pl-9 bg-slate-50 border-slate-200"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -158,8 +167,16 @@ export default function Pecas() {
                 <TableHead className="w-24 text-slate-600 font-semibold">Código</TableHead>
                 <TableHead className="text-slate-600 font-semibold">Nome da Peça</TableHead>
                 <TableHead className="text-slate-600 font-semibold">Categoria</TableHead>
+                <TableHead className="text-slate-600 font-semibold hidden md:table-cell">
+                  Marca
+                </TableHead>
+                <TableHead className="text-slate-600 font-semibold hidden lg:table-cell">
+                  Fornecedor
+                </TableHead>
                 <TableHead className="text-right text-slate-600 font-semibold">Estoque</TableHead>
-                <TableHead className="text-right text-slate-600 font-semibold">Preço</TableHead>
+                <TableHead className="text-right text-slate-600 font-semibold">
+                  Preço Venda
+                </TableHead>
                 <TableHead className="w-16 text-center text-slate-600 font-semibold">
                   Ações
                 </TableHead>
@@ -168,7 +185,7 @@ export default function Pecas() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                  <TableCell colSpan={8} className="h-32 text-center text-slate-500">
                     <div className="flex justify-center items-center h-full">
                       <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
@@ -176,7 +193,7 @@ export default function Pecas() {
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-40 text-center">
+                  <TableCell colSpan={8} className="h-40 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400">
                       <Box className="w-10 h-10 mb-3 text-slate-300" />
                       <p className="text-slate-600 font-medium">Nenhuma peça encontrada</p>
@@ -189,12 +206,19 @@ export default function Pecas() {
                   <TableRow key={p.id} className="hover:bg-slate-50/80 transition-colors">
                     <TableCell className="font-mono text-xs text-slate-500">
                       {p.codigo_produto != null ? p.codigo_produto : '-'}
+                      {p.sku && <div className="text-[10px] text-slate-400 mt-0.5">{p.sku}</div>}
                     </TableCell>
                     <TableCell className="font-medium text-slate-900">{p.nome}</TableCell>
                     <TableCell>
                       <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
-                        {p.categoria || 'Sem categoria'}
+                        {p.categoria_rel?.nome || p.categoria || 'Sem categoria'}
                       </span>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-slate-600 text-sm">
+                      {p.marca?.nome || '-'}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-slate-600 text-sm truncate max-w-[150px]">
+                      {p.fornecedor?.nome || '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <span

@@ -5,6 +5,7 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Form,
   FormControl,
@@ -26,18 +27,29 @@ import {
   createProduto,
   updateProduto,
   checkCodigoExists,
+  checkSkuExists,
   getFornecedores,
+  getMarcas,
+  getCategoriasProduto,
 } from '@/services/produtos'
 import { Check, Plus } from 'lucide-react'
 
 const schema = z.object({
   codigo_produto: z.coerce.number().min(1, 'Código obrigatório'),
+  sku: z.string().optional(),
   nome: z.string().min(2, 'Nome obrigatório'),
-  categoria: z.string().min(1, 'Categoria obrigatória'),
+  marca_id: z.string().min(1, 'Marca obrigatória'),
+  categoria_id: z.string().min(1, 'Categoria obrigatória'),
+  fornecedor_principal_id: z.string().optional().or(z.literal('none')).or(z.literal('')),
+  unidade: z.string().min(1, 'Unidade obrigatória').default('UN'),
+  referencia: z.string().optional(),
   descricao_tecnica: z.string().optional(),
+  preco_custo: z.coerce.number().min(0, 'Preço de custo inválido'),
+  preco_venda: z.coerce.number().min(0, 'Preço de venda inválido'),
   estoque_total: z.coerce.number().min(0, 'Estoque inválido').optional().default(0),
-  preco_venda: z.coerce.number().min(0, 'Preço deve ser positivo').optional().default(0),
-  fornecedor_principal_id: z.string().optional().or(z.literal('')),
+  ncm: z.string().max(10, 'Máximo 10 caracteres').optional(),
+  tipo_fiscal: z.string().optional(),
+  ativo: z.boolean().default(true),
 })
 
 type FormData = z.infer<typeof schema>
@@ -46,39 +58,64 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+
   const [fornecedores, setFornecedores] = useState<
     { id: string; nome: string; razao_social: string | null }[]
   >([])
+  const [marcas, setMarcas] = useState<{ id: string; nome: string }[]>([])
+  const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([])
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       codigo_produto: 0,
+      sku: '',
       nome: '',
-      categoria: '',
-      descricao_tecnica: '',
-      estoque_total: 0,
-      preco_venda: 0,
+      marca_id: '',
+      categoria_id: '',
       fornecedor_principal_id: 'none',
+      unidade: 'UN',
+      referencia: '',
+      descricao_tecnica: '',
+      preco_custo: 0,
+      preco_venda: 0,
+      estoque_total: 0,
+      ncm: '',
+      tipo_fiscal: '',
+      ativo: true,
     },
   })
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const forn = await getFornecedores()
+        const [forn, mrc, cats] = await Promise.all([
+          getFornecedores(),
+          getMarcas(),
+          getCategoriasProduto(),
+        ])
         setFornecedores(forn)
+        setMarcas(mrc)
+        setCategorias(cats)
 
         if (pecaId) {
           const data = await getProduto(pecaId)
           form.reset({
             codigo_produto: data.codigo_produto || 0,
-            nome: data.nome,
-            categoria: data.categoria || '',
-            descricao_tecnica: data.descricao_tecnica || '',
-            estoque_total: data.estoque_total || 0,
-            preco_venda: data.preco_venda || 0,
+            sku: data.sku || '',
+            nome: data.nome || '',
+            marca_id: data.marca_id || '',
+            categoria_id: data.categoria_id || '',
             fornecedor_principal_id: data.fornecedor_principal_id || 'none',
+            unidade: data.unidade || 'UN',
+            referencia: data.referencia || '',
+            descricao_tecnica: data.descricao_tecnica || '',
+            preco_custo: data.preco_custo || 0,
+            preco_venda: data.preco_venda || 0,
+            estoque_total: data.estoque_total || 0,
+            ncm: data.ncm || '',
+            tipo_fiscal: data.tipo_fiscal || '',
+            ativo: data.ativo ?? true,
           })
         }
       } catch (e) {
@@ -91,22 +128,39 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   async function onSubmit(values: FormData) {
     setLoading(true)
     try {
-      const exists = await checkCodigoExists(values.codigo_produto, pecaId)
-      if (exists) {
+      const existsCodigo = await checkCodigoExists(values.codigo_produto, pecaId)
+      if (existsCodigo) {
         form.setError('codigo_produto', { message: 'Este código já está em uso.' })
         setLoading(false)
         return
       }
 
+      if (values.sku) {
+        const existsSku = await checkSkuExists(values.sku, pecaId)
+        if (existsSku) {
+          form.setError('sku', { message: 'Este SKU já está em uso.' })
+          setLoading(false)
+          return
+        }
+      }
+
       const payload = {
         codigo_produto: values.codigo_produto,
+        sku: values.sku || null,
         nome: values.nome,
-        categoria: values.categoria,
-        descricao_tecnica: values.descricao_tecnica || null,
-        estoque_total: values.estoque_total,
-        preco_venda: values.preco_venda,
+        marca_id: values.marca_id,
+        categoria_id: values.categoria_id,
         fornecedor_principal_id:
           values.fornecedor_principal_id === 'none' ? null : values.fornecedor_principal_id || null,
+        unidade: values.unidade,
+        referencia: values.referencia || null,
+        descricao_tecnica: values.descricao_tecnica || null,
+        preco_custo: values.preco_custo,
+        preco_venda: values.preco_venda,
+        estoque_total: values.estoque_total,
+        ncm: values.ncm || null,
+        tipo_fiscal: values.tipo_fiscal || null,
+        ativo: values.ativo,
       }
 
       if (pecaId) {
@@ -127,12 +181,20 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   const handleReset = () => {
     form.reset({
       codigo_produto: 0,
+      sku: '',
       nome: '',
-      categoria: '',
-      descricao_tecnica: '',
-      estoque_total: 0,
-      preco_venda: 0,
+      marca_id: '',
+      categoria_id: '',
       fornecedor_principal_id: 'none',
+      unidade: 'UN',
+      referencia: '',
+      descricao_tecnica: '',
+      preco_custo: 0,
+      preco_venda: 0,
+      estoque_total: 0,
+      ncm: '',
+      tipo_fiscal: '',
+      ativo: true,
     })
     setIsSuccess(false)
   }
@@ -168,7 +230,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="codigo_produto"
@@ -184,12 +246,12 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           />
           <FormField
             control={form.control}
-            name="nome"
+            name="sku"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nome da Peça *</FormLabel>
+                <FormLabel>SKU</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ex: Parafuso Sextavado" {...field} />
+                  <Input placeholder="Ex: PRF-SXT-1001" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -197,30 +259,82 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="nome"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nome da Peça *</FormLabel>
+              <FormControl>
+                <Input placeholder="Ex: Parafuso Sextavado" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="categoria"
+            name="marca_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Categoria *</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: Fixadores" {...field} />
-                </FormControl>
+                <FormLabel>Marca *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {marcas.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
           <FormField
             control={form.control}
-            name="fornecedor_principal_id"
+            name="categoria_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Fornecedor</FormLabel>
+                <FormLabel>Categoria *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um fornecedor" />
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {categorias.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="fornecedor_principal_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Fornecedor Principal</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -236,9 +350,93 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="unidade"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Unidade de Medida *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: UN, PC, KG" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="preco_custo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Preço de Custo (R$) *</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="preco_venda"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Preço de Venda (R$) *</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="referencia"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Referência</FormLabel>
+                <FormControl>
+                  <Input placeholder="Cód. do fabricante" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="ncm"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>NCM</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: 8418.10.90" maxLength={10} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="tipo_fiscal"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo Fiscal</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: 00, 09" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="estoque_total"
@@ -254,14 +452,16 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           />
           <FormField
             control={form.control}
-            name="preco_venda"
+            name="ativo"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Preço de Venda (R$)</FormLabel>
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 p-4 shadow-sm self-end h-[68px]">
+                <div className="space-y-0.5">
+                  <FormLabel>Status da Peça</FormLabel>
+                  <div className="text-[0.8rem] text-slate-500">Ativar ou inativar no catálogo</div>
+                </div>
                 <FormControl>
-                  <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -276,7 +476,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
               <FormControl>
                 <Textarea
                   placeholder="Detalhes de material, peso, dimensões..."
-                  rows={3}
+                  rows={2}
                   {...field}
                 />
               </FormControl>

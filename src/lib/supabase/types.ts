@@ -7647,7 +7647,11 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "authenticated_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: true
+//   Policy "authenticated_delete_contatos" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "authenticated_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "authenticated_insert_contatos" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: true
 //   Policy "authenticated_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
@@ -7655,6 +7659,9 @@ export const Constants = {
 //     USING: true
 //   Policy "authenticated_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
+//   Policy "authenticated_update_contatos" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "contatos_delete_admin" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::usuario_role, 'gerente'::usuario_role])))))
 //   Policy "contatos_insert" (INSERT, PERMISSIVE) roles={authenticated}
@@ -7914,6 +7921,15 @@ export const Constants = {
 //     USING: (auth.role() = 'authenticated'::text)
 //   Policy "Permitir tudo para service_role" (ALL, PERMISSIVE) roles={public}
 //     USING: (auth.role() = 'service_role'::text)
+//   Policy "authenticated_delete_produtos" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_insert_produtos" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "authenticated_select_produtos" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_update_produtos" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "prod_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::usuario_role, 'gerente'::usuario_role])))))
 //   Policy "prod_insert" (INSERT, PERMISSIVE) roles={authenticated}
