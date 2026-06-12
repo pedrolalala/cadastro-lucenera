@@ -36,22 +36,26 @@ export default function Index() {
       try {
         const today = new Date().toISOString().split('T')[0]
 
-        const [{ data: statsData }, { data: kpiData }, { data: dcData }, { data: rpData }] =
-          await Promise.all([
-            supabase.rpc('get_dashboard_stats'),
-            supabase.rpc('get_dashboard_kpi', { p_date_now: today }),
-            supabase.rpc('stats_datacenter'),
-            supabase
-              .from('projetos')
-              .select('id, nome, status, updated_at')
-              .order('updated_at', { ascending: false })
-              .limit(5),
-          ])
+        const [statsRes, kpiRes, dcRes, rpRes] = await Promise.all([
+          supabase.rpc('get_dashboard_stats'),
+          supabase.rpc('get_dashboard_kpi', { p_date_now: today }),
+          supabase.rpc('stats_datacenter'),
+          supabase
+            .from('projetos')
+            .select('id, nome, status, updated_at')
+            .order('updated_at', { ascending: false })
+            .limit(5),
+        ])
 
-        setStats(statsData || {})
-        setKpis(kpiData || {})
-        setDcStats(dcData || {})
-        setRecentProjects(rpData || [])
+        if (statsRes.error) console.error('Error stats:', statsRes.error)
+        if (kpiRes.error) console.error('Error kpi:', kpiRes.error)
+        if (dcRes.error) console.error('Error dc:', dcRes.error)
+        if (rpRes.error) console.error('Error rp:', rpRes.error)
+
+        setStats(statsRes.data || {})
+        setKpis(kpiRes.data || {})
+        setDcStats(dcRes.data || {})
+        setRecentProjects(rpRes.data || [])
       } catch (e) {
         console.error('Error fetching dashboard data:', e)
       } finally {
