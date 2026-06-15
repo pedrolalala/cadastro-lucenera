@@ -23,12 +23,11 @@ export function Header() {
   const { setModal, setGlobalSearchOpen } = useStore()
 
   const pathMap: Record<string, string> = {
-    '/': 'Dashboard',
     '/clientes': 'Clientes',
     '/projetos': 'Projetos',
     '/pecas': 'Peças',
   }
-  const title = pathMap[location.pathname] || 'Dashboard'
+  const title = pathMap[location.pathname] || 'Projetos'
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -48,7 +47,7 @@ export function Header() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/">Cadastro</Link>
+                <Link to="/projetos">Cadastro</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />

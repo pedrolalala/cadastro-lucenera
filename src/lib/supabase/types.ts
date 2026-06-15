@@ -8348,34 +8348,49 @@ export const Constants = {
 //     v_start_last_month := date_trunc('month', p_date_now - interval '1 month');
 //     v_end_last_month := (date_trunc('month', p_date_now) - interval '1 day')::date;
 //
-//     -- Calculate Total Balance (All time based on visibility)
-//     SELECT COALESCE(SUM(CASE WHEN type = 'Receita' THEN amount ELSE -amount END), 0)
+//     -- Calculate Total Balance
+//     SELECT COALESCE(SUM(saldo), 0)
 //     INTO v_total_balance
-//     FROM public.transactions;
+//     FROM public.contas_bancarias;
+//
+//     IF v_total_balance = 0 THEN
+//       SELECT COALESCE(SUM(CASE WHEN tipo = 'receita' THEN valor WHEN tipo = 'despesa' THEN -valor ELSE 0 END), 0)
+//       INTO v_total_balance
+//       FROM public.transacoes
+//       WHERE status_pago = 1 OR dt_pagamento IS NOT NULL;
+//     END IF;
 //
 //     -- Calculate Month Income
-//     SELECT COALESCE(SUM(amount), 0)
+//     SELECT COALESCE(SUM(valor), 0)
 //     INTO v_month_income
-//     FROM public.transactions
-//     WHERE type = 'Receita' AND date >= v_start_month AND date <= v_end_month;
+//     FROM public.transacoes
+//     WHERE tipo = 'receita'
+//       AND (COALESCE(dt_pagamento, data_transacao) >= v_start_month AND COALESCE(dt_pagamento, data_transacao) <= v_end_month)
+//       AND (status_pago = 1 OR dt_pagamento IS NOT NULL);
 //
 //     -- Calculate Month Expense
-//     SELECT COALESCE(SUM(amount), 0)
+//     SELECT COALESCE(SUM(valor), 0)
 //     INTO v_month_expense
-//     FROM public.transactions
-//     WHERE type = 'Despesa' AND date >= v_start_month AND date <= v_end_month;
+//     FROM public.transacoes
+//     WHERE tipo = 'despesa'
+//       AND (COALESCE(dt_pagamento, data_transacao) >= v_start_month AND COALESCE(dt_pagamento, data_transacao) <= v_end_month)
+//       AND (status_pago = 1 OR dt_pagamento IS NOT NULL);
 //
 //     -- Calculate Last Month Income
-//     SELECT COALESCE(SUM(amount), 0)
+//     SELECT COALESCE(SUM(valor), 0)
 //     INTO v_last_month_income
-//     FROM public.transactions
-//     WHERE type = 'Receita' AND date >= v_start_last_month AND date <= v_end_last_month;
+//     FROM public.transacoes
+//     WHERE tipo = 'receita'
+//       AND (COALESCE(dt_pagamento, data_transacao) >= v_start_last_month AND COALESCE(dt_pagamento, data_transacao) <= v_end_last_month)
+//       AND (status_pago = 1 OR dt_pagamento IS NOT NULL);
 //
 //     -- Calculate Last Month Expense
-//     SELECT COALESCE(SUM(amount), 0)
+//     SELECT COALESCE(SUM(valor), 0)
 //     INTO v_last_month_expense
-//     FROM public.transactions
-//     WHERE type = 'Despesa' AND date >= v_start_last_month AND date <= v_end_last_month;
+//     FROM public.transacoes
+//     WHERE tipo = 'despesa'
+//       AND (COALESCE(dt_pagamento, data_transacao) >= v_start_last_month AND COALESCE(dt_pagamento, data_transacao) <= v_end_last_month)
+//       AND (status_pago = 1 OR dt_pagamento IS NOT NULL);
 //
 //     RETURN json_build_object(
 //       'totalBalance', v_total_balance,
@@ -8405,29 +8420,19 @@ export const Constants = {
 //     -- Active projects count
 //     SELECT COUNT(*) INTO v_active_projects
 //     FROM public.projetos
-//     WHERE status::text NOT IN ('Finalizado', 'Arquivado', 'Não fechou')
+//     WHERE status::text NOT IN ('Finalizado', 'Obra Finalizada', 'Arquivado', 'Não Fechou')
 //        OR status IS NULL;
 //
 //     -- Completed this month count
 //     SELECT COUNT(*) INTO v_completed_this_month
 //     FROM public.projetos
-//     WHERE status::text = 'Finalizado'
-//       AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
-//       AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE);
+//     WHERE status::text IN ('Finalizado', 'Obra Finalizada')
+//       AND updated_at >= date_trunc('month', CURRENT_DATE);
 //
-//     -- Total Value: Sum of parcelas or valor_total
-//     SELECT COALESCE(SUM(
-//       CASE
-//         WHEN p_parcelas.total_parcelas > 0 THEN p_parcelas.total_parcelas
-//         ELSE COALESCE(p.valor_total, 0)
-//       END
-//     ), 0) INTO v_total_value
-//     FROM public.projetos p
-//     LEFT JOIN (
-//       SELECT projeto_id, SUM(valor) as total_parcelas
-//       FROM public.projeto_parcelas
-//       GROUP BY projeto_id
-//     ) p_parcelas ON p.id = p_parcelas.projeto_id;
+//     -- Total Value: Sum of valor_total from vw_financeiro_projetos
+//     SELECT COALESCE(SUM(valor_total), 0) INTO v_total_value
+//     FROM public.vw_financeiro_projetos
+//     WHERE status::text NOT IN ('Arquivado', 'Não Fechou') OR status IS NULL;
 //
 //     -- Contatos counts
 //     SELECT COUNT(*) INTO v_clients_count FROM public.contatos WHERE tipo = 'cliente';

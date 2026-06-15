@@ -1,14 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Users, Briefcase, Wrench } from 'lucide-react'
+import { Users, Briefcase, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function MobileBottomNav() {
   const location = useLocation()
 
   const navItems = [
-    { name: 'Início', path: '/', icon: LayoutDashboard },
-    { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Projetos', path: '/projetos', icon: Briefcase },
+    { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Peças', path: '/pecas', icon: Wrench },
   ]
 

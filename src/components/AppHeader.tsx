@@ -21,12 +21,11 @@ export function AppHeader() {
   const { setActiveModal } = useDataStore()
 
   const pathMap: Record<string, string> = {
-    '/': 'Dashboard',
     '/clientes': 'Clientes',
     '/projetos': 'Projetos',
     '/pecas': 'Peças',
   }
-  const currentPathName = pathMap[location.pathname] || 'Dashboard'
+  const currentPathName = pathMap[location.pathname] || 'Projetos'
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-4 md:px-6 shadow-sm">

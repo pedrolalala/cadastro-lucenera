@@ -1,14 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Users, FolderKanban, Wrench } from 'lucide-react'
+import { Users, FolderKanban, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function BottomNav() {
   const location = useLocation()
 
   const navItems = [
-    { name: 'Home', path: '/', icon: LayoutDashboard },
-    { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Projetos', path: '/projetos', icon: FolderKanban },
+    { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Peças', path: '/pecas', icon: Wrench },
   ]
 
