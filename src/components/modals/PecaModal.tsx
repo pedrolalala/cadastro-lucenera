@@ -14,8 +14,8 @@ export function PecaModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[98vw] w-full max-h-[95vh] h-full flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 mb-2">
           <DialogTitle className="text-xl font-bold">
             {editingId ? 'Editar Peça' : 'Nova Peça'}
           </DialogTitle>
@@ -23,7 +23,9 @@ export function PecaModal() {
             Preencha os detalhes da peça para atualizar o catálogo de inventário.
           </DialogDescription>
         </DialogHeader>
-        {isOpen && <PecaForm pecaId={editingId} onSuccess={closeModal} />}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-2 px-2 pb-2">
+          {isOpen && <PecaForm pecaId={editingId} onSuccess={closeModal} />}
+        </div>
       </DialogContent>
     </Dialog>
   )

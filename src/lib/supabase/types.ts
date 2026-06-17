@@ -1018,6 +1018,7 @@ export type Database = {
           local: Database['public']['Enums']['estoque_local']
           produto_id: string
           quantidade: number
+          quantidade_reservada: number
         }
         Insert: {
           atualizado_em?: string
@@ -1026,6 +1027,7 @@ export type Database = {
           local?: Database['public']['Enums']['estoque_local']
           produto_id: string
           quantidade?: number
+          quantidade_reservada?: number
         }
         Update: {
           atualizado_em?: string
@@ -1034,6 +1036,7 @@ export type Database = {
           local?: Database['public']['Enums']['estoque_local']
           produto_id?: string
           quantidade?: number
+          quantidade_reservada?: number
         }
         Relationships: [
           {
@@ -1056,6 +1059,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'produtos'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'estoque_itens_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_detalhe_produto_estoque'
+            referencedColumns: ['produto_id']
           },
           {
             foreignKeyName: 'estoque_itens_produto_id_fkey'
@@ -1633,6 +1643,36 @@ export type Database = {
           },
         ]
       }
+      logs_operacoes: {
+        Row: {
+          acao: string
+          created_at: string | null
+          dados_anteriores: Json | null
+          dados_novos: Json | null
+          id: string
+          projeto_id: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string | null
+          dados_anteriores?: Json | null
+          dados_novos?: Json | null
+          id?: string
+          projeto_id?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string | null
+          dados_anteriores?: Json | null
+          dados_novos?: Json | null
+          id?: string
+          projeto_id?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       marcas: {
         Row: {
           ativo: boolean
@@ -1900,6 +1940,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'produtos'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'orcamento_itens_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_detalhe_produto_estoque'
+            referencedColumns: ['produto_id']
           },
           {
             foreignKeyName: 'orcamento_itens_produto_id_fkey'
@@ -2364,9 +2411,11 @@ export type Database = {
           ativo: boolean
           categoria: string | null
           categoria_id: string | null
+          cest: string | null
           codigo_legado: number | null
           codigo_produto: number | null
           created_at: string
+          cst: string | null
           custo_total: number | null
           descricao_tecnica: string | null
           estoque_disponivel: number | null
@@ -2378,15 +2427,18 @@ export type Database = {
           ipi_entrada: number | null
           marca_id: string | null
           margem_lucro: number | null
+          mascara_produto: string | null
           ncm: string | null
           nome: string
           percentual_lucro: number | null
+          porc_bdi: number | null
           porc_despesas: number | null
           porc_frete: number | null
           preco_custo: number | null
           preco_venda: number | null
           referencia: string | null
           sku: string | null
+          status_comercial: string | null
           tipo_fiscal: string | null
           unidade: string | null
           updated_at: string
@@ -2397,9 +2449,11 @@ export type Database = {
           ativo?: boolean
           categoria?: string | null
           categoria_id?: string | null
+          cest?: string | null
           codigo_legado?: number | null
           codigo_produto?: number | null
           created_at?: string
+          cst?: string | null
           custo_total?: number | null
           descricao_tecnica?: string | null
           estoque_disponivel?: number | null
@@ -2411,15 +2465,18 @@ export type Database = {
           ipi_entrada?: number | null
           marca_id?: string | null
           margem_lucro?: number | null
+          mascara_produto?: string | null
           ncm?: string | null
           nome: string
           percentual_lucro?: number | null
+          porc_bdi?: number | null
           porc_despesas?: number | null
           porc_frete?: number | null
           preco_custo?: number | null
           preco_venda?: number | null
           referencia?: string | null
           sku?: string | null
+          status_comercial?: string | null
           tipo_fiscal?: string | null
           unidade?: string | null
           updated_at?: string
@@ -2430,9 +2487,11 @@ export type Database = {
           ativo?: boolean
           categoria?: string | null
           categoria_id?: string | null
+          cest?: string | null
           codigo_legado?: number | null
           codigo_produto?: number | null
           created_at?: string
+          cst?: string | null
           custo_total?: number | null
           descricao_tecnica?: string | null
           estoque_disponivel?: number | null
@@ -2444,15 +2503,18 @@ export type Database = {
           ipi_entrada?: number | null
           marca_id?: string | null
           margem_lucro?: number | null
+          mascara_produto?: string | null
           ncm?: string | null
           nome?: string
           percentual_lucro?: number | null
+          porc_bdi?: number | null
           porc_despesas?: number | null
           porc_frete?: number | null
           preco_custo?: number | null
           preco_venda?: number | null
           referencia?: string | null
           sku?: string | null
+          status_comercial?: string | null
           tipo_fiscal?: string | null
           unidade?: string | null
           updated_at?: string
@@ -2537,6 +2599,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'produtos'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'projeto_itens_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_detalhe_produto_estoque'
+            referencedColumns: ['produto_id']
           },
           {
             foreignKeyName: 'projeto_itens_produto_id_fkey'
@@ -2887,6 +2956,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'produtos'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'projeto_produtos_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_detalhe_produto_estoque'
+            referencedColumns: ['produto_id']
           },
           {
             foreignKeyName: 'projeto_produtos_produto_id_fkey'
@@ -3603,6 +3679,13 @@ export type Database = {
             foreignKeyName: 'separacao_itens_produto_id_fkey'
             columns: ['produto_id']
             isOneToOne: false
+            referencedRelation: 'vw_detalhe_produto_estoque'
+            referencedColumns: ['produto_id']
+          },
+          {
+            foreignKeyName: 'separacao_itens_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
             referencedRelation: 'vw_estoque_liquido'
             referencedColumns: ['produto_id']
           },
@@ -3973,6 +4056,139 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      solicitacoes_compra: {
+        Row: {
+          created_at: string | null
+          id: string
+          produto_id: string
+          projeto_id: string
+          quantidade_pedida: number
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          produto_id: string
+          projeto_id: string
+          quantidade_pedida: number
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          produto_id?: string
+          projeto_id?: string
+          quantidade_pedida?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'solicitacoes_compra_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'produtos'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_detalhe_produto_estoque'
+            referencedColumns: ['produto_id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_estoque_liquido'
+            referencedColumns: ['produto_id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_vendas_loja'
+            referencedColumns: ['produto_id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_vendas_por_projeto'
+            referencedColumns: ['produto_id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'projetos'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_financeiro_projetos'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_projetos_dashboard'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_projetos_pipeline'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_projetos_resumo'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_projetos_sem_empresa'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_projetos_sem_responsavel'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_separacoes_agenda'
+            referencedColumns: ['projeto_id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_transacoes_completas'
+            referencedColumns: ['projeto_id']
+          },
+          {
+            foreignKeyName: 'solicitacoes_compra_projeto_id_fkey'
+            columns: ['projeto_id']
+            isOneToOne: false
+            referencedRelation: 'vw_vendas_por_projeto'
+            referencedColumns: ['projeto_id']
+          },
+        ]
       }
       staging_conta_pagar: {
         Row: {
@@ -5176,6 +5392,31 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_detalhe_produto_estoque: {
+        Row: {
+          ativo: boolean | null
+          cest: string | null
+          codigo_produto: number | null
+          cst: string | null
+          ncm: string | null
+          nome: string | null
+          porc_bdi: number | null
+          porc_despesas: number | null
+          porc_frete: number | null
+          preco_custo: number | null
+          produto_id: string | null
+          qtd_atual: number | null
+          qtd_disponivel: number | null
+          qtd_reserva: number | null
+          referencia: string | null
+          setor: Database['public']['Enums']['estoque_local'] | null
+          sku: string | null
+          status_comercial: string | null
+          unidade: string | null
+          valor_venda: number | null
+        }
+        Relationships: []
+      }
       vw_estoque_liquido: {
         Row: {
           alerta_estoque: string | null
@@ -5296,6 +5537,23 @@ export type Database = {
           justificativa: string | null
           periodo_id: string | null
           status: string | null
+        }
+        Relationships: []
+      }
+      vw_produtos_estoque_por_local: {
+        Row: {
+          cest: string | null
+          codigo_produto: number | null
+          cst: string | null
+          mascara_produto: string | null
+          nome: string | null
+          porc_bdi: number | null
+          preco_venda: number | null
+          quantidade: number | null
+          quantidade_reservada: number | null
+          setor: Database['public']['Enums']['estoque_local'] | null
+          status_comercial: string | null
+          unidade: string | null
         }
         Relationships: []
       }
@@ -6247,6 +6505,7 @@ export const Constants = {
 //   quantidade: numeric (not null, default: 0)
 //   atualizado_por: uuid (nullable)
 //   atualizado_em: timestamp with time zone (not null, default: now())
+//   quantidade_reservada: numeric (not null, default: 0)
 // Table: ferias
 //   id: uuid (not null, default: gen_random_uuid())
 //   funcionario_id: uuid (not null)
@@ -6348,6 +6607,14 @@ export const Constants = {
 //   created_at: timestamp with time zone (nullable, default: now())
 //   ordem: integer (nullable, default: 0)
 //   valor_total: numeric (nullable)
+// Table: logs_operacoes
+//   id: uuid (not null, default: gen_random_uuid())
+//   projeto_id: uuid (nullable)
+//   usuario_id: uuid (nullable)
+//   acao: text (not null)
+//   dados_anteriores: jsonb (nullable)
+//   dados_novos: jsonb (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: marcas
 //   id: uuid (not null, default: gen_random_uuid())
 //   nome: text (not null)
@@ -6485,6 +6752,11 @@ export const Constants = {
 //   margem_lucro: numeric (nullable)
 //   ncm: character varying (nullable)
 //   tipo_fiscal: text (nullable)
+//   cst: text (nullable)
+//   cest: text (nullable)
+//   porc_bdi: numeric (nullable)
+//   status_comercial: text (nullable)
+//   mascara_produto: text (nullable)
 // Table: projeto_itens
 //   id: uuid (not null, default: gen_random_uuid())
 //   projeto_id: uuid (not null)
@@ -6727,6 +6999,13 @@ export const Constants = {
 //   inclui_garantia: boolean (nullable, default: false)
 //   garantia_peca: text (nullable)
 //   garantia_motivo: text (nullable)
+// Table: solicitacoes_compra
+//   id: uuid (not null, default: gen_random_uuid())
+//   projeto_id: uuid (not null)
+//   produto_id: uuid (not null)
+//   quantidade_pedida: numeric (not null)
+//   status: text (not null, default: 'Pendente'::text)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: staging_conta_pagar
 //   tipo_operacao: text (nullable)
 //   cod_empresa: integer (nullable)
@@ -7022,6 +7301,27 @@ export const Constants = {
 //   projetos_corporativos: bigint (nullable)
 //   projetos_comerciais: bigint (nullable)
 //   projetos_paisagismo: bigint (nullable)
+// Table: vw_detalhe_produto_estoque
+//   produto_id: uuid (nullable)
+//   codigo_produto: integer (nullable)
+//   nome: text (nullable)
+//   referencia: text (nullable)
+//   sku: text (nullable)
+//   unidade: text (nullable)
+//   preco_custo: numeric (nullable)
+//   porc_frete: numeric (nullable)
+//   porc_despesas: numeric (nullable)
+//   porc_bdi: numeric (nullable)
+//   valor_venda: numeric (nullable)
+//   ncm: character varying (nullable)
+//   cst: text (nullable)
+//   cest: text (nullable)
+//   status_comercial: text (nullable)
+//   ativo: boolean (nullable)
+//   setor: estoque_local (nullable)
+//   qtd_atual: numeric (nullable)
+//   qtd_reserva: numeric (nullable)
+//   qtd_disponivel: numeric (nullable)
 // Table: vw_estoque_liquido
 //   produto_id: uuid (nullable)
 //   produto: text (nullable)
@@ -7102,6 +7402,19 @@ export const Constants = {
 //   periodo_id: uuid (nullable)
 //   data_inicio: date (nullable)
 //   data_fim: date (nullable)
+// Table: vw_produtos_estoque_por_local
+//   codigo_produto: integer (nullable)
+//   nome: text (nullable)
+//   unidade: text (nullable)
+//   preco_venda: numeric (nullable)
+//   cst: text (nullable)
+//   cest: text (nullable)
+//   porc_bdi: numeric (nullable)
+//   status_comercial: text (nullable)
+//   mascara_produto: text (nullable)
+//   setor: estoque_local (nullable)
+//   quantidade: numeric (nullable)
+//   quantidade_reservada: numeric (nullable)
 // Table: vw_projetos_dashboard
 //   id: uuid (nullable)
 //   codigo: character varying (nullable)
@@ -7438,6 +7751,9 @@ export const Constants = {
 //   FOREIGN KEY itens_orcamento_ubiqua_produto_id_fkey: FOREIGN KEY (produto_id) REFERENCES revenda_ubiqua(id) ON DELETE RESTRICT
 //   CHECK itens_orcamento_ubiqua_quantidade_check: CHECK ((quantidade > 0))
 //   CHECK itens_orcamento_ubiqua_valor_unitario_check: CHECK ((valor_unitario >= (0)::numeric))
+// Table: logs_operacoes
+//   PRIMARY KEY logs_operacoes_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY logs_operacoes_usuario_id_fkey: FOREIGN KEY (usuario_id) REFERENCES auth.users(id)
 // Table: marcas
 //   UNIQUE marcas_codigo_legado_key: UNIQUE (codigo_legado)
 //   UNIQUE marcas_nome_key: UNIQUE (nome)
@@ -7558,6 +7874,10 @@ export const Constants = {
 //   FOREIGN KEY separacoes_responsavel_id_fkey: FOREIGN KEY (responsavel_id) REFERENCES usuarios(id) ON DELETE SET NULL
 // Table: separacoes_arquivos
 //   PRIMARY KEY separacoes_arquivos_pkey: PRIMARY KEY (id)
+// Table: solicitacoes_compra
+//   PRIMARY KEY solicitacoes_compra_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY solicitacoes_compra_produto_id_fkey: FOREIGN KEY (produto_id) REFERENCES produtos(id)
+//   FOREIGN KEY solicitacoes_compra_projeto_id_fkey: FOREIGN KEY (projeto_id) REFERENCES projetos(id)
 // Table: sync_history
 //   FOREIGN KEY sync_history_executado_por_fkey: FOREIGN KEY (executado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 //   PRIMARY KEY sync_history_pkey: PRIMARY KEY (id)
@@ -8126,6 +8446,14 @@ export const Constants = {
 //   Policy "vendas_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::usuario_role, 'gerente'::usuario_role])))))
 
+// --- WARNING: TABLES WITH RLS ENABLED BUT NO POLICIES ---
+// These tables have Row Level Security enabled but NO policies defined.
+// This means ALL queries (SELECT, INSERT, UPDATE, DELETE) will return ZERO rows
+// for non-superuser roles (including the anon and authenticated roles used by the app).
+// You MUST create RLS policies for these tables to allow data access.
+//   - logs_operacoes
+//   - solicitacoes_compra
+
 // --- DATABASE FUNCTIONS ---
 // FUNCTION admin_update_user_password(uuid, text)
 //   CREATE OR REPLACE FUNCTION public.admin_update_user_password(p_user_id uuid, p_new_password text)
@@ -8239,6 +8567,21 @@ export const Constants = {
 //   END;
 //   $function$
 //
+// FUNCTION fn_atualizar_preco_venda()
+//   CREATE OR REPLACE FUNCTION public.fn_atualizar_preco_venda()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//       -- Lógica: Custo Base + Frete + Despesas + BDI
+//       -- Ajuste a fórmula conforme a regra específica da Lucenera
+//       NEW.custo_total := NEW.preco_custo * (1 + (NEW.porc_frete / 100) + (NEW.porc_despesas / 100));
+//       NEW.valor_venda := NEW.custo_total * (1 + (NEW.porc_bdi / 100));
+//
+//       RETURN NEW;
+//   END;
+//   $function$
+//
 // FUNCTION fn_auto_numero_orcamento()
 //   CREATE OR REPLACE FUNCTION public.fn_auto_numero_orcamento()
 //    RETURNS trigger
@@ -8310,6 +8653,97 @@ export const Constants = {
 //     price_str := replace(to_char(COALESCE(preco, 0), 'FM999999990.00'), '.', '-');
 //
 //     RETURN base_slug || '-' || price_str;
+//   END;
+//   $function$
+//
+// FUNCTION gerenciar_fluxo_projeto()
+//   CREATE OR REPLACE FUNCTION public.gerenciar_fluxo_projeto()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   DECLARE
+//       v_item RECORD;
+//       v_estoque_disponivel NUMERIC;
+//       v_faltante NUMERIC;
+//       v_acao VARCHAR(20);
+//       v_usuario VARCHAR(100);
+//   BEGIN
+//       -- Apenas processa quando o status efetivamente muda
+//       IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+//           IF NEW.status = 'Aprovado' THEN
+//               v_acao := 'APROVACAO';
+//               v_usuario := NEW.aprovado_por;
+//
+//               -- Percorre os itens do orçamento original
+//               FOR v_item IN
+//                   SELECT oi.id, oi.item_id, oi.quantidade, oi.orcamento_id
+//                   FROM orcamento_itens oi
+//                   JOIN orcamentos o ON o.id = oi.orcamento_id
+//                   WHERE o.projeto_id = NEW.id
+//               LOOP
+//                   -- Insere o item em projeto_itens
+//                   INSERT INTO projeto_itens (projeto_id, item_id, quantidade, orcamento_item_id)
+//                   VALUES (NEW.id, v_item.item_id, v_item.quantidade, v_item.id);
+//
+//                   -- Calcula o estoque disponível (exemplo: quantidade atual - reservada)
+//                   SELECT COALESCE(quantidade, 0) - COALESCE(quantidade_reservada, 0)
+//                   INTO v_estoque_disponivel
+//                   FROM estoque_itens
+//                   WHERE id = v_item.item_id;
+//
+//                   IF v_estoque_disponivel >= v_item.quantidade THEN
+//                       -- Incrementa a quantidade reservada
+//                       UPDATE estoque_itens
+//                       SET quantidade_reservada = COALESCE(quantidade_reservada, 0) + v_item.quantidade
+//                       WHERE id = v_item.item_id;
+//                   ELSE
+//                       -- Reserva o que é possível
+//                       IF v_estoque_disponivel > 0 THEN
+//                           UPDATE estoque_itens
+//                           SET quantidade_reservada = COALESCE(quantidade_reservada, 0) + v_estoque_disponivel
+//                           WHERE id = v_item.item_id;
+//
+//                           v_faltante := v_item.quantidade - v_estoque_disponivel;
+//                       ELSE
+//                           v_faltante := v_item.quantidade;
+//                       END IF;
+//
+//                       -- Insere solicitação de compra para o faltante
+//                       INSERT INTO solicitacoes_compra (projeto_id, item_id, quantidade, status, data_solicitacao)
+//                       VALUES (NEW.id, v_item.item_id, v_faltante, 'Pendente', NOW());
+//                   END IF;
+//               END LOOP;
+//
+//           ELSIF NEW.status = 'Estornado' THEN
+//               v_acao := 'ESTORNO';
+//               v_usuario := NEW.estornado_por;
+//
+//               -- Percorre os itens do projeto
+//               FOR v_item IN
+//                   SELECT id, item_id, quantidade
+//                   FROM projeto_itens
+//                   WHERE projeto_id = NEW.id
+//               LOOP
+//                   -- Decrementa a quantidade reservada em estoque_itens
+//                   UPDATE estoque_itens
+//                   SET quantidade_reservada = GREATEST(COALESCE(quantidade_reservada, 0) - v_item.quantidade, 0)
+//                   WHERE id = v_item.item_id;
+//               END LOOP;
+//
+//               -- Cancela solicitações de compra pendentes do projeto
+//               UPDATE solicitacoes_compra
+//               SET status = 'Cancelado', data_cancelamento = NOW()
+//               WHERE projeto_id = NEW.id AND status = 'Pendente';
+//           END IF;
+//
+//           -- Registra log da operação, se houver uma ação identificada
+//           IF v_acao IS NOT NULL THEN
+//               INSERT INTO logs_operacoes (projeto_id, acao, usuario, data_hora)
+//               VALUES (NEW.id, v_acao, v_usuario, NOW());
+//           END IF;
+//       END IF;
+//
+//       RETURN NEW;
 //   END;
 //   $function$
 //
@@ -9119,6 +9553,7 @@ export const Constants = {
 //   trigger_orcamento_updated_at: CREATE TRIGGER trigger_orcamento_updated_at BEFORE UPDATE ON public.orcamentos_revenda_ubiqua FOR EACH ROW EXECUTE FUNCTION fn_update_orcamento_timestamp()
 // Table: produtos
 //   produtos_updated_at: CREATE TRIGGER produtos_updated_at BEFORE UPDATE ON public.produtos FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+//   trg_calculo_preco_venda: CREATE TRIGGER trg_calculo_preco_venda BEFORE INSERT OR UPDATE ON public.produtos FOR EACH ROW EXECUTE FUNCTION fn_atualizar_preco_venda()
 //   update_produtos_updated_at: CREATE TRIGGER update_produtos_updated_at BEFORE UPDATE ON public.produtos FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
 // Table: projeto_itens
 //   projeto_itens_updated_at: CREATE TRIGGER projeto_itens_updated_at BEFORE UPDATE ON public.projeto_itens FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -9131,6 +9566,7 @@ export const Constants = {
 // Table: projetos
 //   projetos_updated_at: CREATE TRIGGER projetos_updated_at BEFORE UPDATE ON public.projetos FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 //   trg_fechar_projeto: CREATE TRIGGER trg_fechar_projeto AFTER UPDATE OF status ON public.projetos FOR EACH ROW EXECUTE FUNCTION trigger_fechar_projeto()
+//   trg_gerenciar_fluxo_projeto: CREATE TRIGGER trg_gerenciar_fluxo_projeto AFTER UPDATE ON public.projetos FOR EACH ROW EXECUTE FUNCTION gerenciar_fluxo_projeto()
 //   trg_propagate_projeto_codigo: CREATE TRIGGER trg_propagate_projeto_codigo AFTER UPDATE OF codigo ON public.projetos FOR EACH ROW EXECUTE FUNCTION propagate_projeto_codigo()
 //   trg_proteger_fechamento: CREATE TRIGGER trg_proteger_fechamento BEFORE UPDATE OF status ON public.projetos FOR EACH ROW EXECUTE FUNCTION trigger_proteger_fechamento()
 //   trg_reserva_estoque: CREATE TRIGGER trg_reserva_estoque AFTER UPDATE OF status ON public.projetos FOR EACH ROW EXECUTE FUNCTION trigger_reserva_estoque()
