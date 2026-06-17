@@ -247,13 +247,19 @@ export type Database = {
         Row: {
           ativo: boolean | null
           bairro: string | null
+          bairro_cobranca: string | null
           bairro_comercial: string | null
+          bairro_entrega: string | null
           canonical_id: string | null
           celular: string | null
           cep: string | null
+          cep_cobranca: string | null
           cep_comercial: string | null
+          cep_entrega: string | null
           cidade: string | null
+          cidade_cobranca: string | null
           cidade_comercial: string | null
+          cidade_entrega: string | null
           cnpj: string | null
           codigo_legado: number | null
           cpf: string | null
@@ -262,35 +268,56 @@ export type Database = {
           created_by: string | null
           data_nascimento: string | null
           email: string | null
+          email_alternativo: string | null
           email_financeiro: string | null
           empresa_id: string | null
           endereco: string | null
+          endereco_cobranca: string | null
           endereco_comercial: string | null
+          endereco_entrega: string | null
           especialidade: string | null
           estado: string | null
+          estado_cobranca: string | null
           estado_comercial: string | null
+          estado_entrega: string | null
           id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          limite_credito: number | null
           nao_residente: boolean
           nome: string
           nome_empresa: string | null
+          numero: string | null
+          numero_cobranca: string | null
+          numero_entrega: string | null
           observacoes: string | null
           razao_social: string | null
+          regime_apuracao: string | null
           rg: string | null
+          status_comercial: string | null
           telefone: string | null
           tipo: Database['public']['Enums']['contato_tipo']
           tipo_pessoa: string | null
           updated_at: string | null
+          vendedor_id: string | null
+          vendedor_padrao_id: string | null
         }
         Insert: {
           ativo?: boolean | null
           bairro?: string | null
+          bairro_cobranca?: string | null
           bairro_comercial?: string | null
+          bairro_entrega?: string | null
           canonical_id?: string | null
           celular?: string | null
           cep?: string | null
+          cep_cobranca?: string | null
           cep_comercial?: string | null
+          cep_entrega?: string | null
           cidade?: string | null
+          cidade_cobranca?: string | null
           cidade_comercial?: string | null
+          cidade_entrega?: string | null
           cnpj?: string | null
           codigo_legado?: number | null
           cpf?: string | null
@@ -299,35 +326,56 @@ export type Database = {
           created_by?: string | null
           data_nascimento?: string | null
           email?: string | null
+          email_alternativo?: string | null
           email_financeiro?: string | null
           empresa_id?: string | null
           endereco?: string | null
+          endereco_cobranca?: string | null
           endereco_comercial?: string | null
+          endereco_entrega?: string | null
           especialidade?: string | null
           estado?: string | null
+          estado_cobranca?: string | null
           estado_comercial?: string | null
+          estado_entrega?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          limite_credito?: number | null
           nao_residente?: boolean
           nome: string
           nome_empresa?: string | null
+          numero?: string | null
+          numero_cobranca?: string | null
+          numero_entrega?: string | null
           observacoes?: string | null
           razao_social?: string | null
+          regime_apuracao?: string | null
           rg?: string | null
+          status_comercial?: string | null
           telefone?: string | null
           tipo: Database['public']['Enums']['contato_tipo']
           tipo_pessoa?: string | null
           updated_at?: string | null
+          vendedor_id?: string | null
+          vendedor_padrao_id?: string | null
         }
         Update: {
           ativo?: boolean | null
           bairro?: string | null
+          bairro_cobranca?: string | null
           bairro_comercial?: string | null
+          bairro_entrega?: string | null
           canonical_id?: string | null
           celular?: string | null
           cep?: string | null
+          cep_cobranca?: string | null
           cep_comercial?: string | null
+          cep_entrega?: string | null
           cidade?: string | null
+          cidade_cobranca?: string | null
           cidade_comercial?: string | null
+          cidade_entrega?: string | null
           cnpj?: string | null
           codigo_legado?: number | null
           cpf?: string | null
@@ -336,24 +384,39 @@ export type Database = {
           created_by?: string | null
           data_nascimento?: string | null
           email?: string | null
+          email_alternativo?: string | null
           email_financeiro?: string | null
           empresa_id?: string | null
           endereco?: string | null
+          endereco_cobranca?: string | null
           endereco_comercial?: string | null
+          endereco_entrega?: string | null
           especialidade?: string | null
           estado?: string | null
+          estado_cobranca?: string | null
           estado_comercial?: string | null
+          estado_entrega?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          limite_credito?: number | null
           nao_residente?: boolean
           nome?: string
           nome_empresa?: string | null
+          numero?: string | null
+          numero_cobranca?: string | null
+          numero_entrega?: string | null
           observacoes?: string | null
           razao_social?: string | null
+          regime_apuracao?: string | null
           rg?: string | null
+          status_comercial?: string | null
           telefone?: string | null
           tipo?: Database['public']['Enums']['contato_tipo']
           tipo_pessoa?: string | null
           updated_at?: string | null
+          vendedor_id?: string | null
+          vendedor_padrao_id?: string | null
         }
         Relationships: [
           {
@@ -6060,6 +6123,14 @@ export type Database = {
       }
       get_latest_transaction_id: { Args: never; Returns: string }
       get_user_role: { Args: never; Returns: string }
+      get_vendedores: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+          name: string
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_ubiqua_admin: { Args: never; Returns: boolean }
       limpar_staging_processados: { Args: never; Returns: number }
@@ -6382,6 +6453,27 @@ export const Constants = {
 //   empresa_id: uuid (nullable)
 //   nao_residente: boolean (not null, default: false)
 //   razao_social: text (nullable)
+//   inscricao_estadual: text (nullable)
+//   inscricao_municipal: text (nullable)
+//   limite_credito: numeric (nullable)
+//   regime_apuracao: text (nullable)
+//   email_alternativo: text (nullable)
+//   vendedor_id: uuid (nullable)
+//   numero: text (nullable)
+//   cep_entrega: text (nullable)
+//   endereco_entrega: text (nullable)
+//   numero_entrega: text (nullable)
+//   bairro_entrega: text (nullable)
+//   cidade_entrega: text (nullable)
+//   estado_entrega: text (nullable)
+//   cep_cobranca: text (nullable)
+//   endereco_cobranca: text (nullable)
+//   numero_cobranca: text (nullable)
+//   bairro_cobranca: text (nullable)
+//   cidade_cobranca: text (nullable)
+//   estado_cobranca: text (nullable)
+//   vendedor_padrao_id: uuid (nullable)
+//   status_comercial: text (nullable, default: 'Ativo'::text)
 // Table: contatos_revisao
 //   id: uuid (not null, default: gen_random_uuid())
 //   id_a: uuid (not null)
@@ -7649,6 +7741,8 @@ export const Constants = {
 //   FOREIGN KEY contatos_empresa_id_fkey: FOREIGN KEY (empresa_id) REFERENCES contatos(id)
 //   PRIMARY KEY contatos_pkey: PRIMARY KEY (id)
 //   CHECK contatos_tipo_pessoa_check: CHECK (((tipo_pessoa)::text = ANY ((ARRAY['fisica'::character varying, 'juridica'::character varying])::text[])))
+//   FOREIGN KEY contatos_vendedor_id_fkey: FOREIGN KEY (vendedor_id) REFERENCES auth.users(id)
+//   FOREIGN KEY contatos_vendedor_padrao_id_fkey: FOREIGN KEY (vendedor_padrao_id) REFERENCES auth.users(id)
 //   UNIQUE uq_contatos_codigo_legado_tipo: UNIQUE (codigo_legado, tipo)
 //   UNIQUE uq_contatos_cpf_cnpj: UNIQUE (cpf_cnpj)
 // Table: contatos_revisao
@@ -7957,6 +8051,9 @@ export const Constants = {
 //   Policy "contato_origens_write" (ALL, PERMISSIVE) roles={service_role}
 //     USING: true
 // Table: contato_tipos
+//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "contato_tipos_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 //   Policy "contato_tipos_write" (ALL, PERMISSIVE) roles={service_role}
@@ -8945,6 +9042,32 @@ export const Constants = {
 //   END;
 //   $function$
 //
+// FUNCTION get_vendedores()
+//   CREATE OR REPLACE FUNCTION public.get_vendedores()
+//    RETURNS TABLE(id uuid, email character varying, name text)
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     RETURN QUERY SELECT u.id, u.email, (u.raw_user_meta_data->>'name')::TEXT as name FROM auth.users u;
+//   END;
+//   $function$
+//
+// FUNCTION handle_contato_tipo()
+//   CREATE OR REPLACE FUNCTION public.handle_contato_tipo()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//     IF NEW.tipo IS NOT NULL THEN
+//       INSERT INTO public.contato_tipos (contato_id, tipo)
+//       VALUES (NEW.id, NEW.tipo)
+//       ON CONFLICT DO NOTHING;
+//     END IF;
+//     RETURN NEW;
+//   END;
+//   $function$
+//
 // FUNCTION handle_new_auth_user()
 //   CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 //    RETURNS trigger
@@ -9557,6 +9680,7 @@ export const Constants = {
 //   contas_updated_at: CREATE TRIGGER contas_updated_at BEFORE UPDATE ON public.contas_bancarias FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 // Table: contatos
 //   contatos_updated_at: CREATE TRIGGER contatos_updated_at BEFORE UPDATE ON public.contatos FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+//   on_contato_created: CREATE TRIGGER on_contato_created AFTER INSERT OR UPDATE ON public.contatos FOR EACH ROW EXECUTE FUNCTION handle_contato_tipo()
 //   trg_propagate_contato_nome: CREATE TRIGGER trg_propagate_contato_nome AFTER UPDATE OF nome ON public.contatos FOR EACH ROW EXECUTE FUNCTION propagate_contato_nome()
 // Table: custos_recorrentes
 //   custos_rec_updated_at: CREATE TRIGGER custos_rec_updated_at BEFORE UPDATE ON public.custos_recorrentes FOR EACH ROW EXECUTE FUNCTION set_updated_at()

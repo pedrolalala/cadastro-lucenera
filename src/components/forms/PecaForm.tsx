@@ -53,12 +53,14 @@ const schema = z.object({
   descricao_tecnica: z.string().optional(),
   preco_custo: z.coerce.number().min(0, 'Inválido'),
   preco_venda: z.coerce.number().min(0, 'Inválido'),
+  valor_venda: z.coerce.number().min(0).optional().default(0),
   ncm: z.string().max(10).optional(),
   tipo_fiscal: z.string().optional(),
   ativo: z.boolean().default(true),
   porc_frete: z.coerce.number().min(0).optional().default(0),
   porc_despesas: z.coerce.number().min(0).optional().default(0),
   porc_bdi: z.coerce.number().min(0).optional().default(0),
+  porc_st: z.coerce.number().min(0).optional().default(0),
   margem_lucro: z.coerce.number().min(0).optional().default(0),
   custo_total: z.coerce.number().min(0).optional().default(0),
   cst: z.string().optional().default(''),
@@ -94,12 +96,14 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
       descricao_tecnica: '',
       preco_custo: 0,
       preco_venda: 0,
+      valor_venda: 0,
       ncm: '',
       tipo_fiscal: '',
       ativo: true,
       porc_frete: 0,
       porc_despesas: 0,
       porc_bdi: 0,
+      porc_st: 0,
       margem_lucro: 0,
       custo_total: 0,
       cst: '',
@@ -113,19 +117,25 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
 
   const { watch, setValue, getValues } = form
   const pCusto = watch('preco_custo') || 0
+  const pST = watch('porc_st') || 0
+  const pIPI = watch('ipi_entrada') || 0
   const pFrete = watch('porc_frete') || 0
-  const pDesp = watch('porc_despesas') || 0
-  const pBdi = watch('porc_bdi') || 0
   const mLucro = watch('margem_lucro') || 0
 
   useEffect(() => {
-    const calcCustoTotal = pCusto * (1 + pFrete / 100 + pDesp / 100)
-    const calcVenda = calcCustoTotal * (1 + pBdi / 100 + mLucro / 100)
+    const calcBdi = pCusto * (pST / 100) + pCusto * (pIPI / 100)
+    const calcCustoTotal = pCusto + calcBdi + pCusto * (pFrete / 100)
+    const calcVenda = calcCustoTotal * (1 + mLucro / 100)
+
+    if (getValues('porc_bdi') !== Number(calcBdi.toFixed(2)))
+      setValue('porc_bdi', Number(calcBdi.toFixed(2)))
     if (getValues('custo_total') !== Number(calcCustoTotal.toFixed(2)))
       setValue('custo_total', Number(calcCustoTotal.toFixed(2)))
     if (getValues('preco_venda') !== Number(calcVenda.toFixed(2)))
       setValue('preco_venda', Number(calcVenda.toFixed(2)))
-  }, [pCusto, pFrete, pDesp, pBdi, mLucro, setValue, getValues])
+    if (getValues('valor_venda') !== Number(calcVenda.toFixed(2)))
+      setValue('valor_venda', Number(calcVenda.toFixed(2)))
+  }, [pCusto, pST, pIPI, pFrete, mLucro, setValue, getValues])
 
   useEffect(() => {
     Promise.all([getFornecedores(), getMarcas(), getCategoriasProduto()]).then(([f, m, c]) => {
@@ -142,6 +152,8 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           ativo: data.ativo ?? true,
           porc_frete: (data as any).porc_frete || 0,
           porc_bdi: (data as any).porc_bdi || 0,
+          porc_st: (data as any).porc_st || 0,
+          valor_venda: (data as any).valor_venda || (data as any).preco_venda || 0,
           cst: (data as any).cst || '',
           cest: (data as any).cest || '',
           mascara_produto: (data as any).mascara_produto || '',
@@ -250,23 +262,34 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
 
           <div className="space-y-3 overflow-y-auto pr-2 pb-2">
             <h3 className="text-sm font-semibold border-b pb-1">Engenharia de Custos</h3>
-            <InputField name="preco_custo" label="Preço Custo (R$)" type="number" />
             <div className="grid grid-cols-2 gap-2">
+              <InputField name="preco_custo" label="Preço Custo (R$)" type="number" />
               <InputField name="porc_frete" label="% Frete" type="number" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <InputField name="porc_st" label="% ST" type="number" />
+              <InputField name="ipi_entrada" label="% IPI" type="number" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <InputField name="margem_lucro" label="% Lucro" type="number" />
               <InputField name="porc_despesas" label="% Despesas" type="number" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField name="porc_bdi" label="% BDI" type="number" />
-              <InputField name="margem_lucro" label="% Lucro" type="number" />
-            </div>
             <div className="bg-slate-50 p-3 rounded-md border space-y-2 mt-2">
+              <div className="grid grid-cols-2 gap-2">
+                <InputField name="porc_bdi" label="Valor BDI Calc. (R$)" type="number" readOnly />
+                <InputField
+                  name="custo_total"
+                  label="Custo Total Calc. (R$)"
+                  type="number"
+                  readOnly
+                />
+              </div>
               <InputField
-                name="custo_total"
-                label="Custo Total Calc. (R$)"
+                name="preco_venda"
+                label="Preço Venda Final (R$)"
                 type="number"
                 readOnly
               />
-              <InputField name="preco_venda" label="Preço Venda Final (R$)" type="number" />
             </div>
           </div>
 
@@ -282,7 +305,6 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             </div>
             <div className="grid grid-cols-2 gap-2">
               <InputField name="icms_entrada" label="% ICMS Entr." type="number" />
-              <InputField name="ipi_entrada" label="% IPI Entr." type="number" />
             </div>
             <InputField name="mascara_produto" label="Máscara / Família" />
             <SelectField
