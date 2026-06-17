@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -61,7 +61,7 @@ const schema = z.object({
   porc_despesas: z.coerce.number().min(0).optional().default(0),
   porc_bdi: z.coerce.number().min(0).optional().default(0),
   porc_st: z.coerce.number().min(0).optional().default(0),
-  margem_lucro: z.coerce.number().min(0).optional().default(0),
+  margem_lucro: z.coerce.number().min(0).optional().default(150),
   custo_total: z.coerce.number().min(0).optional().default(0),
   cst: z.string().optional().default(''),
   cest: z.string().optional().default(''),
@@ -71,6 +71,58 @@ const schema = z.object({
   status_comercial: z.string().optional().default('Normal'),
 })
 type FormData = z.infer<typeof schema>
+
+const InputField = ({ control, name, label, type = 'text', readOnly = false }: any) => (
+  <FormField
+    control={control}
+    name={name}
+    render={({ field }) => (
+      <FormItem className="space-y-1">
+        <FormLabel className="text-xs">{label}</FormLabel>
+        <FormControl>
+          <Input
+            type={type}
+            readOnly={readOnly}
+            step={type === 'number' ? '0.01' : undefined}
+            className="h-8 text-sm"
+            {...field}
+          />
+        </FormControl>
+        <FormMessage className="text-[10px]" />
+      </FormItem>
+    )}
+  />
+)
+
+const SelectField = ({ control, name, label, options }: any) => (
+  <FormField
+    control={control}
+    name={name}
+    render={({ field }) => (
+      <FormItem className="space-y-1">
+        <FormLabel className="text-xs">{label}</FormLabel>
+        <Select
+          onValueChange={field.onChange}
+          value={field.value ? String(field.value) : undefined}
+        >
+          <FormControl>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+          </FormControl>
+          <SelectContent>
+            {options.map((o: any) => (
+              <SelectItem key={o.id || o.value || o.nome} value={String(o.id || o.value || o.nome)}>
+                {o.nome || o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <FormMessage className="text-[10px]" />
+      </FormItem>
+    )}
+  />
+)
 
 export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSuccess: () => void }) {
   const { toast } = useToast()
@@ -104,7 +156,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
       porc_despesas: 0,
       porc_bdi: 0,
       porc_st: 0,
-      margem_lucro: 0,
+      margem_lucro: 150,
       custo_total: 0,
       cst: '',
       cest: '',
@@ -117,10 +169,10 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
 
   const { watch, setValue, getValues } = form
 
-  const parseNum = (val: any) => {
+  const parseNum = useCallback((val: any) => {
     const num = Number(val)
     return isNaN(num) ? 0 : num
-  }
+  }, [])
 
   const pCusto = parseNum(watch('preco_custo'))
   const pST = parseNum(watch('porc_st'))
@@ -131,18 +183,24 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   useEffect(() => {
     const calcBdi = pCusto * (pST / 100) + pCusto * (pIPI / 100)
     const calcCustoTotal = pCusto + calcBdi + pCusto * (pFrete / 100)
-    const calcVenda = calcCustoTotal * (1 + mLucro / 100)
+
+    const mLucroToApply =
+      mLucro === 0 && getValues('margem_lucro') === 0 && pecaId === null ? 150 : mLucro
+    const calcVenda = calcCustoTotal * (1 + mLucroToApply / 100)
 
     const formattedBdi = Number(calcBdi.toFixed(2))
     const formattedCustoTotal = Number(calcCustoTotal.toFixed(2))
     const formattedVenda = Number(calcVenda.toFixed(2))
 
-    if (getValues('porc_bdi') !== formattedBdi) setValue('porc_bdi', formattedBdi)
+    if (getValues('porc_bdi') !== formattedBdi)
+      setValue('porc_bdi', formattedBdi, { shouldValidate: true, shouldDirty: true })
     if (getValues('custo_total') !== formattedCustoTotal)
-      setValue('custo_total', formattedCustoTotal)
-    if (getValues('preco_venda') !== formattedVenda) setValue('preco_venda', formattedVenda)
-    if (getValues('valor_venda') !== formattedVenda) setValue('valor_venda', formattedVenda)
-  }, [pCusto, pST, pIPI, pFrete, mLucro, setValue, getValues])
+      setValue('custo_total', formattedCustoTotal, { shouldValidate: true, shouldDirty: true })
+    if (getValues('preco_venda') !== formattedVenda)
+      setValue('preco_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
+    if (getValues('valor_venda') !== formattedVenda)
+      setValue('valor_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
+  }, [pCusto, pST, pIPI, pFrete, mLucro, setValue, getValues, pecaId])
 
   useEffect(() => {
     Promise.all([getFornecedores(), getMarcas(), getCategoriasProduto()]).then(([f, m, c]) => {
@@ -170,76 +228,30 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     }
   }, [pecaId, form])
 
-  async function onSubmit(v: FormData) {
-    setLoading(true)
-    try {
-      if (await checkCodigoExists(v.codigo_produto, pecaId))
-        return form.setError('codigo_produto', { message: 'Em uso' })
-      if (v.sku && (await checkSkuExists(v.sku, pecaId)))
-        return form.setError('sku', { message: 'Em uso' })
-      const payload = {
-        ...v,
-        fornecedor_principal_id:
-          v.fornecedor_principal_id === 'none' ? null : v.fornecedor_principal_id,
-      } as any
-      if (pecaId) await updateProduto(pecaId, payload)
-      else await createProduto(payload)
-      toast({ title: 'Sucesso', description: 'Peça salva!' })
-      onSuccess()
-    } catch (e) {
-      toast({ title: 'Erro', description: 'Falha ao salvar', variant: 'destructive' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const InputField = ({ name, label, type = 'text', readOnly = false }: any) => (
-    <FormField
-      control={form.control}
-      name={name}
-      render={({ field }) => (
-        <FormItem className="space-y-1">
-          <FormLabel className="text-xs">{label}</FormLabel>
-          <FormControl>
-            <Input
-              type={type}
-              readOnly={readOnly}
-              step={type === 'number' ? '0.01' : undefined}
-              className="h-8 text-sm"
-              {...field}
-            />
-          </FormControl>
-          <FormMessage className="text-[10px]" />
-        </FormItem>
-      )}
-    />
-  )
-
-  const SelectField = ({ name, label, options }: any) => (
-    <FormField
-      control={form.control}
-      name={name}
-      render={({ field }) => (
-        <FormItem className="space-y-1">
-          <FormLabel className="text-xs">{label}</FormLabel>
-          <Select onValueChange={field.onChange} value={field.value}>
-            <FormControl>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {options.map((o: any) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormMessage className="text-[10px]" />
-        </FormItem>
-      )}
-    />
+  const onSubmit = useCallback(
+    async (v: FormData) => {
+      setLoading(true)
+      try {
+        if (await checkCodigoExists(v.codigo_produto, pecaId))
+          return form.setError('codigo_produto', { message: 'Em uso' })
+        if (v.sku && (await checkSkuExists(v.sku, pecaId)))
+          return form.setError('sku', { message: 'Em uso' })
+        const payload = {
+          ...v,
+          fornecedor_principal_id:
+            v.fornecedor_principal_id === 'none' ? null : v.fornecedor_principal_id,
+        } as any
+        if (pecaId) await updateProduto(pecaId, payload)
+        else await createProduto(payload)
+        toast({ title: 'Sucesso', description: 'Peça salva!' })
+        onSuccess()
+      } catch (e) {
+        toast({ title: 'Erro', description: 'Falha ao salvar', variant: 'destructive' })
+      } finally {
+        setLoading(false)
+      }
+    },
+    [pecaId, form, toast, onSuccess],
   )
 
   return (
@@ -249,42 +261,75 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           <div className="space-y-3 overflow-y-auto pr-2 pb-2">
             <h3 className="text-sm font-semibold border-b pb-1">Dados Básicos</h3>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="codigo_produto" label="Código *" type="number" />
-              <InputField name="sku" label="SKU" />
+              <InputField
+                control={form.control}
+                name="codigo_produto"
+                label="Código *"
+                type="number"
+              />
+              <InputField control={form.control} name="sku" label="SKU" />
             </div>
-            <InputField name="nome" label="Nome *" />
-            <SelectField name="marca_id" label="Marca *" options={marcas} />
-            <SelectField name="categoria_id" label="Categoria *" options={categorias} />
+            <InputField control={form.control} name="nome" label="Nome *" />
+            <SelectField control={form.control} name="marca_id" label="Marca *" options={marcas} />
             <SelectField
+              control={form.control}
+              name="categoria_id"
+              label="Categoria *"
+              options={categorias}
+            />
+            <SelectField
+              control={form.control}
               name="fornecedor_principal_id"
               label="Fornecedor"
               options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
             />
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="unidade" label="Unidade *" />
-              <InputField name="referencia" label="Referência" />
+              <InputField control={form.control} name="unidade" label="Unidade *" />
+              <InputField control={form.control} name="referencia" label="Referência" />
             </div>
-            <InputField name="descricao_tecnica" label="Desc. Técnica" />
+            <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
           </div>
 
           <div className="space-y-3 overflow-y-auto pr-2 pb-2">
             <h3 className="text-sm font-semibold border-b pb-1">Engenharia de Custos</h3>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="preco_custo" label="Preço Custo (R$)" type="number" />
-              <InputField name="porc_frete" label="% Frete" type="number" />
+              <InputField
+                control={form.control}
+                name="preco_custo"
+                label="Preço Custo (R$)"
+                type="number"
+              />
+              <InputField control={form.control} name="porc_frete" label="% Frete" type="number" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="porc_st" label="% ST" type="number" />
-              <InputField name="ipi_entrada" label="% IPI" type="number" />
+              <InputField control={form.control} name="porc_st" label="% ST" type="number" />
+              <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="margem_lucro" label="% Lucro" type="number" />
-              <InputField name="porc_despesas" label="% Despesas" type="number" />
+              <InputField
+                control={form.control}
+                name="margem_lucro"
+                label="% Lucro"
+                type="number"
+              />
+              <InputField
+                control={form.control}
+                name="porc_despesas"
+                label="% Despesas"
+                type="number"
+              />
             </div>
             <div className="bg-slate-50 p-3 rounded-md border space-y-2 mt-2">
               <div className="grid grid-cols-2 gap-2">
-                <InputField name="porc_bdi" label="Valor BDI Calc. (R$)" type="number" readOnly />
                 <InputField
+                  control={form.control}
+                  name="porc_bdi"
+                  label="Valor BDI Calc. (R$)"
+                  type="number"
+                  readOnly
+                />
+                <InputField
+                  control={form.control}
                   name="custo_total"
                   label="Custo Total Calc. (R$)"
                   type="number"
@@ -292,6 +337,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 />
               </div>
               <InputField
+                control={form.control}
                 name="preco_venda"
                 label="Preço Venda Final (R$)"
                 type="number"
@@ -303,18 +349,24 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           <div className="space-y-3 overflow-y-auto pr-2 pb-2">
             <h3 className="text-sm font-semibold border-b pb-1">Dados Fiscais</h3>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="ncm" label="NCM" />
-              <InputField name="tipo_fiscal" label="Tipo Fiscal" />
+              <InputField control={form.control} name="ncm" label="NCM" />
+              <InputField control={form.control} name="tipo_fiscal" label="Tipo Fiscal" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="cst" label="CST" />
-              <InputField name="cest" label="CEST" />
+              <InputField control={form.control} name="cst" label="CST" />
+              <InputField control={form.control} name="cest" label="CEST" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <InputField name="icms_entrada" label="% ICMS Entr." type="number" />
+              <InputField
+                control={form.control}
+                name="icms_entrada"
+                label="% ICMS Entr."
+                type="number"
+              />
             </div>
-            <InputField name="mascara_produto" label="Máscara / Família" />
+            <InputField control={form.control} name="mascara_produto" label="Máscara / Família" />
             <SelectField
+              control={form.control}
               name="status_comercial"
               label="Status Comercial"
               options={[

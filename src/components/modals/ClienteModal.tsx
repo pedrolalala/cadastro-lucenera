@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -90,49 +90,59 @@ export function ClienteModal() {
     }
   }, [isOpen, editingId, clientes, form])
 
-  const onSubmit = async (data: any) => {
-    setIsSubmitting(true)
-    try {
-      await saveCliente(
-        {
-          ...data,
-          ativo: data.ativo === 'true',
-          tipo: 'Cliente',
-          name: data.nome,
-          company: data.razao_social || '',
-          phone: data.celular || data.telefone || '',
-          status: data.ativo === 'true' ? 'Ativo' : 'Inativo',
-          limite_credito: data.limite_credito ? parseFloat(data.limite_credito) : null,
-        },
-        editingId,
-      )
-      toast({ title: 'Sucesso', description: 'Cliente salvo!' })
-      closeModal()
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  const onSubmit = useCallback(
+    async (data: any) => {
+      setIsSubmitting(true)
+      try {
+        await saveCliente(
+          {
+            ...data,
+            ativo: data.ativo === 'true',
+            tipo: 'Cliente',
+            name: data.nome,
+            company: data.razao_social || '',
+            phone: data.celular || data.telefone || '',
+            status: data.ativo === 'true' ? 'Ativo' : 'Inativo',
+            limite_credito: data.limite_credito ? parseFloat(data.limite_credito) : null,
+          },
+          editingId,
+        )
+        toast({ title: 'Sucesso', description: 'Cliente salvo!' })
+        closeModal()
+      } catch (err: any) {
+        toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [saveCliente, editingId, toast, closeModal],
+  )
 
-  const fetchAddress = async (cep: string) => {
+  const fetchAddress = useCallback(async (cep: string) => {
     try {
       const res = await fetch(`https://viacep.com.br/ws/${cep.replace(/\D/g, '')}/json/`)
       return await res.json()
     } catch {
       return null
     }
-  }
+  }, [])
 
-  const copyAddr = (to: 'entrega' | 'cobranca') => {
-    const fields = ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'estado']
-    fields.forEach((f) =>
-      form.setValue(
-        `${to === 'entrega' ? 'cep_entrega' : 'cep_cobranca'}`.replace('cep', f) as any,
-        form.getValues(f as any) || '',
-      ),
-    )
-  }
+  const copyAddr = useCallback(
+    (to: 'entrega' | 'cobranca') => {
+      const fields = ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'estado']
+      fields.forEach((f) =>
+        form.setValue(
+          `${to === 'entrega' ? 'cep_entrega' : 'cep_cobranca'}`.replace('cep', f) as any,
+          form.getValues(f as any) || '',
+          { shouldValidate: true, shouldDirty: true },
+        ),
+      )
+    },
+    [form],
+  )
+
+  const copyToEntrega = useCallback(() => copyAddr('entrega'), [copyAddr])
+  const copyToCobranca = useCallback(() => copyAddr('cobranca'), [copyAddr])
 
   if (!isOpen) return null
 
@@ -291,14 +301,14 @@ export function ClienteModal() {
                     form={form}
                     prefix="entrega"
                     title="Endereço de Entrega"
-                    onCopy={() => copyAddr('entrega')}
+                    onCopy={copyToEntrega}
                     fetchAddress={fetchAddress}
                   />
                   <AddressBlock
                     form={form}
                     prefix="cobranca"
                     title="Endereço de Cobrança"
-                    onCopy={() => copyAddr('cobranca')}
+                    onCopy={copyToCobranca}
                     fetchAddress={fetchAddress}
                   />
                 </div>

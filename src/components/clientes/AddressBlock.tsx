@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { CompactField } from './CompactField'
 import { Button } from '@/components/ui/button'
 import { Copy, MapPin } from 'lucide-react'
@@ -7,17 +8,20 @@ export function AddressBlock({ form, prefix, title, onCopy, fetchAddress }: any)
   const isPrincipal = prefix === ''
   const p = prefix ? `${prefix}_` : ''
 
-  const handleCepChange = async (e: any, val: string, onChange: any) => {
-    if (val.replace(/\D/g, '').length === 8) {
-      const data = await fetchAddress(val)
-      if (data) {
-        form.setValue(`${p}endereco`, data.logradouro || '')
-        form.setValue(`${p}bairro`, data.bairro || '')
-        form.setValue(`${p}cidade`, data.localidade || '')
-        form.setValue(`${p}estado`, data.uf || '')
+  const handleCepChange = useCallback(
+    async (e: any, val: string, onChange: any) => {
+      if (val.replace(/\D/g, '').length === 8) {
+        const data = await fetchAddress(val)
+        if (data) {
+          form.setValue(`${p}endereco`, data.logradouro || '', { shouldValidate: true })
+          form.setValue(`${p}bairro`, data.bairro || '', { shouldValidate: true })
+          form.setValue(`${p}cidade`, data.localidade || '', { shouldValidate: true })
+          form.setValue(`${p}estado`, data.uf || '', { shouldValidate: true })
+        }
       }
-    }
-  }
+    },
+    [fetchAddress, form, p],
+  )
 
   return (
     <div className="bg-slate-100 p-4 rounded-lg border shadow-sm">
