@@ -101,3 +101,12 @@ export async function getFornecedores() {
   if (error) throw error
   return data
 }
+
+export async function getEstoqueItens(produtoId: string) {
+  const { data, error } = await supabase
+    .from('estoque_itens')
+    .select('*')
+    .eq('produto_id', produtoId)
+  if (error) throw error
+  return data
+}
