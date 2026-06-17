@@ -221,7 +221,11 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
         status_comercial: values.status_comercial,
       } as any
 
-      pecaId ? await updateProduto(pecaId, payload) : await createProduto(payload)
+      if (pecaId) {
+        await updateProduto(pecaId, payload)
+      } else {
+        await createProduto(payload)
+      }
       setIsSuccess(true)
       toast({ title: 'Sucesso', description: pecaId ? 'Peça atualizada!' : 'Peça registrada!' })
     } catch (e: any) {
