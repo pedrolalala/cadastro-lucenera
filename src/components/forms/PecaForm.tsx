@@ -116,25 +116,32 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   })
 
   const { watch, setValue, getValues } = form
-  const pCusto = watch('preco_custo') || 0
-  const pST = watch('porc_st') || 0
-  const pIPI = watch('ipi_entrada') || 0
-  const pFrete = watch('porc_frete') || 0
-  const mLucro = watch('margem_lucro') || 0
+
+  const parseNum = (val: any) => {
+    const num = Number(val)
+    return isNaN(num) ? 0 : num
+  }
+
+  const pCusto = parseNum(watch('preco_custo'))
+  const pST = parseNum(watch('porc_st'))
+  const pIPI = parseNum(watch('ipi_entrada'))
+  const pFrete = parseNum(watch('porc_frete'))
+  const mLucro = parseNum(watch('margem_lucro'))
 
   useEffect(() => {
     const calcBdi = pCusto * (pST / 100) + pCusto * (pIPI / 100)
     const calcCustoTotal = pCusto + calcBdi + pCusto * (pFrete / 100)
     const calcVenda = calcCustoTotal * (1 + mLucro / 100)
 
-    if (getValues('porc_bdi') !== Number(calcBdi.toFixed(2)))
-      setValue('porc_bdi', Number(calcBdi.toFixed(2)))
-    if (getValues('custo_total') !== Number(calcCustoTotal.toFixed(2)))
-      setValue('custo_total', Number(calcCustoTotal.toFixed(2)))
-    if (getValues('preco_venda') !== Number(calcVenda.toFixed(2)))
-      setValue('preco_venda', Number(calcVenda.toFixed(2)))
-    if (getValues('valor_venda') !== Number(calcVenda.toFixed(2)))
-      setValue('valor_venda', Number(calcVenda.toFixed(2)))
+    const formattedBdi = Number(calcBdi.toFixed(2))
+    const formattedCustoTotal = Number(calcCustoTotal.toFixed(2))
+    const formattedVenda = Number(calcVenda.toFixed(2))
+
+    if (getValues('porc_bdi') !== formattedBdi) setValue('porc_bdi', formattedBdi)
+    if (getValues('custo_total') !== formattedCustoTotal)
+      setValue('custo_total', formattedCustoTotal)
+    if (getValues('preco_venda') !== formattedVenda) setValue('preco_venda', formattedVenda)
+    if (getValues('valor_venda') !== formattedVenda) setValue('valor_venda', formattedVenda)
   }, [pCusto, pST, pIPI, pFrete, mLucro, setValue, getValues])
 
   useEffect(() => {

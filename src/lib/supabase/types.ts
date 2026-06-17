@@ -2497,6 +2497,7 @@ export type Database = {
           porc_bdi: number | null
           porc_despesas: number | null
           porc_frete: number | null
+          porc_st: number | null
           preco_custo: number | null
           preco_venda: number | null
           referencia: string | null
@@ -2535,6 +2536,7 @@ export type Database = {
           porc_bdi?: number | null
           porc_despesas?: number | null
           porc_frete?: number | null
+          porc_st?: number | null
           preco_custo?: number | null
           preco_venda?: number | null
           referencia?: string | null
@@ -2573,6 +2575,7 @@ export type Database = {
           porc_bdi?: number | null
           porc_despesas?: number | null
           porc_frete?: number | null
+          porc_st?: number | null
           preco_custo?: number | null
           preco_venda?: number | null
           referencia?: string | null
@@ -6849,6 +6852,7 @@ export const Constants = {
 //   porc_bdi: numeric (nullable)
 //   status_comercial: text (nullable)
 //   mascara_produto: text (nullable)
+//   porc_st: numeric (nullable, default: 0)
 // Table: projeto_itens
 //   id: uuid (not null, default: gen_random_uuid())
 //   projeto_id: uuid (not null)
@@ -8687,11 +8691,23 @@ export const Constants = {
 //    RETURNS trigger
 //    LANGUAGE plpgsql
 //   AS $function$
+//   DECLARE
+//       v_valor_st     NUMERIC;
+//       v_valor_ipi    NUMERIC;
+//       v_porc_bdi     NUMERIC;
+//       v_custo_total  NUMERIC;
+//       v_valor_venda  NUMERIC;
 //   BEGIN
-//       -- Lógica: Custo Base + Frete + Despesas + BDI
-//       -- Ajuste a fórmula conforme a regra específica da Lucenera
-//       NEW.custo_total := NEW.preco_custo * (1 + (NEW.porc_frete / 100) + (NEW.porc_despesas / 100));
-//       NEW.valor_venda := NEW.custo_total * (1 + (NEW.porc_bdi / 100));
+//       v_valor_st    := COALESCE(NEW.preco_custo, 0) * (COALESCE(NEW.icms_entrada, 0) / 100);
+//       v_valor_ipi   := COALESCE(NEW.preco_custo, 0) * (COALESCE(NEW.ipi_entrada, 0) / 100);
+//       v_porc_bdi    := v_valor_st + v_valor_ipi;
+//       v_custo_total := COALESCE(NEW.preco_custo, 0)
+//                        + v_porc_bdi
+//                        + (COALESCE(NEW.preco_custo, 0) * (COALESCE(NEW.porc_frete, 0) / 100));
+//
+//       v_valor_venda := v_custo_total * 2.5;
+//
+//       NEW.preco_venda := v_valor_venda;
 //
 //       RETURN NEW;
 //   END;
