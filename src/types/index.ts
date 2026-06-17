@@ -17,10 +17,33 @@ export type Cliente = {
   phone: string // legacy
   celular?: string
   endereco?: string
+  numero?: string
   bairro?: string
   cep?: string
   cidade?: string
   estado?: string
+
+  cep_entrega?: string
+  endereco_entrega?: string
+  numero_entrega?: string
+  bairro_entrega?: string
+  cidade_entrega?: string
+  estado_entrega?: string
+
+  cep_cobranca?: string
+  endereco_cobranca?: string
+  numero_cobranca?: string
+  bairro_cobranca?: string
+  cidade_cobranca?: string
+  estado_cobranca?: string
+
+  inscricao_estadual?: string
+  inscricao_municipal?: string
+  limite_credito?: number
+  regime_apuracao?: string
+  email_alternativo?: string
+  vendedor_id?: string
+
   observacoes?: string
   ativo: boolean
   status: 'Ativo' | 'Inativo' // legacy

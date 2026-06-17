@@ -2,559 +2,309 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import { Form } from '@/components/ui/form'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import useDataStore from '@/stores/use-data-store'
-import { maskCPF, maskCNPJ, maskPhone, maskCEP } from '@/lib/utils'
+import { maskCPF, maskCNPJ, maskPhone } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { Building2, Save, X } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
+import { CompactField } from '../clientes/CompactField'
+import { CompactSelect } from '../clientes/CompactSelect'
+import { AddressBlock } from '../clientes/AddressBlock'
 
-const clienteSchema = z
-  .object({
-    tipo_pessoa: z.enum(['Física', 'Jurídica']),
-    nome: z.string().min(2, 'Nome é obrigatório'),
-    cpf: z.string().optional(),
-    rg: z.string().optional(),
-    data_nascimento: z.string().optional(),
-    cnpj: z.string().optional(),
-    razao_social: z.string().optional(),
-    nome_empresa: z.string().optional(),
-    email: z.string().email('E-mail inválido').optional().or(z.literal('')),
-    email_financeiro: z.string().email('E-mail inválido').optional().or(z.literal('')),
-    telefone: z.string().optional(),
-    celular: z.string().optional(),
-    endereco: z.string().optional(),
-    bairro: z.string().optional(),
-    cep: z.string().optional(),
-    cidade: z.string().optional(),
-    estado: z.string().optional(),
-    observacoes: z.string().optional(),
-    ativo: z.boolean().default(true),
-  })
-  .superRefine((data, ctx) => {
-    if (data.tipo_pessoa === 'Física') {
-      if (!data.cpf || data.cpf.replace(/\D/g, '').length !== 11) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'CPF inválido', path: ['cpf'] })
-      }
-    } else {
-      if (!data.cnpj || data.cnpj.replace(/\D/g, '').length !== 14) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'CNPJ inválido', path: ['cnpj'] })
-      }
-      if (!data.razao_social || data.razao_social.trim() === '') {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Razão social é obrigatória',
-          path: ['razao_social'],
-        })
-      }
-    }
-  })
-
-type FormValues = z.infer<typeof clienteSchema>
+const clienteSchema = z.object({
+  tipo_pessoa: z.enum(['Física', 'Jurídica']),
+  ativo: z.enum(['true', 'false']).default('true'),
+  nome: z.string().min(2, 'Obrigatório'),
+  cpf: z.string().optional(),
+  rg: z.string().optional(),
+  data_nascimento: z.string().optional(),
+  cnpj: z.string().optional(),
+  razao_social: z.string().optional(),
+  inscricao_estadual: z.string().optional(),
+  inscricao_municipal: z.string().optional(),
+  limite_credito: z.string().optional(),
+  regime_apuracao: z.string().optional(),
+  vendedor_id: z.string().optional(),
+  email: z.string().email('Inválido').optional().or(z.literal('')),
+  email_financeiro: z.string().email('Inválido').optional().or(z.literal('')),
+  email_alternativo: z.string().email('Inválido').optional().or(z.literal('')),
+  telefone: z.string().optional(),
+  celular: z.string().optional(),
+  observacoes: z.string().optional(),
+  cep: z.string().optional(),
+  endereco: z.string().optional(),
+  numero: z.string().optional(),
+  bairro: z.string().optional(),
+  cidade: z.string().optional(),
+  estado: z.string().optional(),
+  cep_entrega: z.string().optional(),
+  endereco_entrega: z.string().optional(),
+  numero_entrega: z.string().optional(),
+  bairro_entrega: z.string().optional(),
+  cidade_entrega: z.string().optional(),
+  estado_entrega: z.string().optional(),
+  cep_cobranca: z.string().optional(),
+  endereco_cobranca: z.string().optional(),
+  numero_cobranca: z.string().optional(),
+  bairro_cobranca: z.string().optional(),
+  cidade_cobranca: z.string().optional(),
+  estado_cobranca: z.string().optional(),
+})
 
 export function ClienteModal() {
   const { activeModal, closeModal, editingId, clientes, saveCliente } = useDataStore()
   const { toast } = useToast()
   const isOpen = activeModal === 'cliente'
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [continueAdding, setContinueAdding] = useState(false)
+  const [vendedores, setVendedores] = useState<{ value: string; label: string }[]>([])
 
-  const form = useForm<FormValues>({
+  const form = useForm<z.infer<typeof clienteSchema>>({
     resolver: zodResolver(clienteSchema),
-    defaultValues: {
-      tipo_pessoa: 'Jurídica',
-      nome: '',
-      ativo: true,
-      cpf: '',
-      rg: '',
-      data_nascimento: '',
-      cnpj: '',
-      razao_social: '',
-      nome_empresa: '',
-      email: '',
-      email_financeiro: '',
-      telefone: '',
-      celular: '',
-      endereco: '',
-      bairro: '',
-      cep: '',
-      cidade: '',
-      estado: '',
-      observacoes: '',
-    },
+    defaultValues: { tipo_pessoa: 'Jurídica', ativo: 'true' },
   })
+  const tp = form.watch('tipo_pessoa')
+
+  useEffect(() => {
+    supabase.rpc('get_vendedores').then(({ data }) => {
+      if (data) setVendedores(data.map((u: any) => ({ value: u.id, label: u.name || u.email })))
+    })
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
       if (editingId) {
-        const c = clientes.find((cli) => cli.id === editingId)
+        const c: any = clientes.find((cli) => cli.id === editingId)
         if (c) {
           form.reset({
-            tipo_pessoa: c.tipo_pessoa || 'Jurídica',
+            ...c,
+            ativo: c.ativo ? 'true' : 'false',
             nome: c.nome || c.name || '',
-            cpf: c.cpf || '',
-            rg: c.rg || '',
-            data_nascimento: c.data_nascimento || '',
-            cnpj: c.cnpj || '',
-            razao_social: c.razao_social || '',
-            nome_empresa: c.nome_empresa || c.company || '',
-            email: c.email || '',
-            email_financeiro: c.email_financeiro || '',
-            telefone: c.telefone || c.phone || '',
-            celular: c.celular || '',
-            endereco: c.endereco || '',
-            bairro: c.bairro || '',
-            cep: c.cep || '',
-            cidade: c.cidade || '',
-            estado: c.estado || '',
-            observacoes: c.observacoes || '',
-            ativo: c.ativo ?? c.status === 'Ativo',
+            limite_credito: c.limite_credito ? String(c.limite_credito) : '',
           })
         }
-      } else {
-        form.reset({
-          tipo_pessoa: 'Jurídica',
-          nome: '',
-          ativo: true,
-          cpf: '',
-          rg: '',
-          data_nascimento: '',
-          cnpj: '',
-          razao_social: '',
-          nome_empresa: '',
-          email: '',
-          email_financeiro: '',
-          telefone: '',
-          celular: '',
-          endereco: '',
-          bairro: '',
-          cep: '',
-          cidade: '',
-          estado: '',
-          observacoes: '',
-        })
-      }
+      } else form.reset({ tipo_pessoa: 'Jurídica', ativo: 'true' })
     }
   }, [isOpen, editingId, clientes, form])
 
-  const tipoPessoa = form.watch('tipo_pessoa')
-
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: any) => {
     setIsSubmitting(true)
     try {
       await saveCliente(
         {
           ...data,
+          ativo: data.ativo === 'true',
           tipo: 'Cliente',
           name: data.nome,
-          company: data.nome_empresa || data.razao_social || '',
+          company: data.razao_social || '',
           phone: data.celular || data.telefone || '',
-          status: data.ativo ? 'Ativo' : 'Inativo',
+          status: data.ativo === 'true' ? 'Ativo' : 'Inativo',
+          limite_credito: data.limite_credito ? parseFloat(data.limite_credito) : null,
         },
         editingId,
       )
-      toast({
-        title: 'Sucesso',
-        description: editingId ? 'Cliente atualizado!' : 'Cliente cadastrado com sucesso!',
-      })
-      if (!editingId && continueAdding) {
-        form.reset()
-      } else {
-        closeModal()
-      }
+      toast({ title: 'Sucesso', description: 'Cliente salvo!' })
+      closeModal()
     } catch (err: any) {
-      toast({
-        title: 'Erro ao salvar',
-        description: err.message || 'Ocorreu um erro inesperado.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const fetchAddress = async (cep: string) => {
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep.replace(/\D/g, '')}/json/`)
+      return await res.json()
+    } catch {
+      return null
+    }
+  }
+
+  const copyAddr = (to: 'entrega' | 'cobranca') => {
+    const fields = ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'estado']
+    fields.forEach((f) =>
+      form.setValue(
+        `${to === 'entrega' ? 'cep_entrega' : 'cep_cobranca'}`.replace('cep', f) as any,
+        form.getValues(f as any) || '',
+      ),
+    )
+  }
+
+  if (!isOpen) return null
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle>{editingId ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
+      <DialogContent className="max-w-[98vw] h-[98vh] flex flex-col p-0 gap-0 bg-slate-50 overflow-hidden">
+        <DialogHeader className="p-4 border-b bg-white flex-row items-center justify-between shrink-0">
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-amber-600" />{' '}
+            {editingId ? 'Editar Cliente' : 'Novo Cliente'}
+          </DialogTitle>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={closeModal}>
+              <X className="w-4 h-4 mr-1" /> Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Save className="w-4 h-4 mr-1" /> Salvar
+            </Button>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col overflow-hidden">
-            <ScrollArea className="flex-1 p-6">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
+          <ScrollArea className="flex-1 p-4 sm:p-6">
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div className="bg-white p-5 rounded-lg border shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 mb-4 border-b pb-2">
+                  Dados Fiscais e Cadastrais
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <CompactSelect
+                    form={form}
                     name="tipo_pessoa"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Pessoa</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Física">Pessoa Física</SelectItem>
-                            <SelectItem value="Jurídica">Pessoa Jurídica</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Tipo Pessoa"
+                    options={[
+                      { label: 'Pessoa Física', value: 'Física' },
+                      { label: 'Pessoa Jurídica', value: 'Jurídica' },
+                    ]}
                   />
-                  <FormField
-                    control={form.control}
+                  <CompactSelect
+                    form={form}
                     name="ativo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select
-                          onValueChange={(v) => field.onChange(v === 'true')}
-                          defaultValue={field.value ? 'true' : 'false'}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="true">Ativo</SelectItem>
-                            <SelectItem value="false">Inativo</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Status"
+                    options={[
+                      { label: 'Ativo', value: 'true' },
+                      { label: 'Inativo', value: 'false' },
+                    ]}
                   />
-                </div>
+                  <CompactField
+                    form={form}
+                    name="nome"
+                    label={tp === 'Jurídica' ? 'Nome Fantasia' : 'Nome Completo'}
+                    className="lg:col-span-2"
+                  />
 
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-900 border-b pb-2">
-                    Dados Principais
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="nome"
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-2">
-                          <FormLabel>
-                            Nome {tipoPessoa === 'Jurídica' && 'Fantasia / Contato'}
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nome principal" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  {tp === 'Física' ? (
+                    <>
+                      <CompactField form={form} name="cpf" label="CPF" maskFn={maskCPF} />
+                      <CompactField form={form} name="rg" label="RG" />
+                      <CompactField
+                        form={form}
+                        name="data_nascimento"
+                        label="Data de Nascimento"
+                        type="date"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <CompactField
+                        form={form}
+                        name="razao_social"
+                        label="Razão Social"
+                        className="lg:col-span-2"
+                      />
+                      <CompactField form={form} name="cnpj" label="CNPJ" maskFn={maskCNPJ} />
+                      <CompactField
+                        form={form}
+                        name="inscricao_estadual"
+                        label="Inscrição Estadual"
+                      />
+                      <CompactField
+                        form={form}
+                        name="inscricao_municipal"
+                        label="Inscrição Municipal"
+                      />
+                    </>
+                  )}
 
-                    {tipoPessoa === 'Física' ? (
-                      <>
-                        <FormField
-                          control={form.control}
-                          name="cpf"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>CPF</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="000.000.000-00"
-                                  {...field}
-                                  onChange={(e) => field.onChange(maskCPF(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="rg"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>RG</FormLabel>
-                              <FormControl>
-                                <Input placeholder="00.000.000-0" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="data_nascimento"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Data de Nascimento</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <FormField
-                          control={form.control}
-                          name="cnpj"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>CNPJ</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="00.000.000/0000-00"
-                                  {...field}
-                                  onChange={(e) => field.onChange(maskCNPJ(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="razao_social"
-                          render={({ field }) => (
-                            <FormItem className="sm:col-span-2">
-                              <FormLabel>Razão Social</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Empresa Ltda" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-900 border-b pb-2">Contato</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>E-mail</FormLabel>
-                          <FormControl>
-                            <Input placeholder="email@exemplo.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="email_financeiro"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>E-mail Financeiro</FormLabel>
-                          <FormControl>
-                            <Input placeholder="financeiro@exemplo.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="telefone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Telefone Fixo</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="(00) 0000-0000"
-                              {...field}
-                              onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="celular"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Celular</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="(00) 00000-0000"
-                              {...field}
-                              onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-900 border-b pb-2">Endereço</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="cep"
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-2">
-                          <FormLabel>CEP</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="00000-000"
-                              {...field}
-                              onChange={(e) => field.onChange(maskCEP(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="endereco"
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-4">
-                          <FormLabel>Logradouro</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Rua, Avenida..." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="bairro"
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-2">
-                          <FormLabel>Bairro</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Bairro" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="cidade"
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-3">
-                          <FormLabel>Cidade</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Cidade" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="estado"
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-1">
-                          <FormLabel>UF</FormLabel>
-                          <FormControl>
-                            <Input placeholder="SP" maxLength={2} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="observacoes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Observações</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Notas adicionais sobre o cliente..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  <CompactField
+                    form={form}
+                    name="limite_credito"
+                    label="Limite de Crédito (R$)"
+                    type="number"
+                  />
+                  <CompactSelect
+                    form={form}
+                    name="regime_apuracao"
+                    label="Regime de Apuração"
+                    options={[
+                      { label: 'Simples Nacional', value: 'Simples Nacional' },
+                      { label: 'Lucro Presumido', value: 'Lucro Presumido' },
+                      { label: 'Lucro Real', value: 'Lucro Real' },
+                    ]}
+                  />
+                  <CompactSelect
+                    form={form}
+                    name="vendedor_id"
+                    label="Vendedor Padrão"
+                    options={vendedores}
                   />
                 </div>
               </div>
-            </ScrollArea>
 
-            <DialogFooter className="p-6 border-t bg-slate-50 flex items-center justify-between sm:justify-between">
-              {!editingId ? (
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="continue"
-                    checked={continueAdding}
-                    onChange={(e) => setContinueAdding(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-600"
+              <div className="bg-white p-5 rounded-lg border shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 mb-4 border-b pb-2">
+                  Comunicação e Contato
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <CompactField form={form} name="email" label="E-mail Principal" type="email" />
+                  <CompactField
+                    form={form}
+                    name="email_financeiro"
+                    label="E-mail Financeiro"
+                    type="email"
                   />
-                  <label htmlFor="continue" className="text-sm text-slate-600 cursor-pointer">
-                    Cadastrar outro após salvar
-                  </label>
+                  <CompactField
+                    form={form}
+                    name="email_alternativo"
+                    label="E-mail Alternativo"
+                    type="email"
+                  />
+                  <CompactField
+                    form={form}
+                    name="telefone"
+                    label="Telefone Fixo"
+                    maskFn={maskPhone}
+                  />
+                  <CompactField form={form} name="celular" label="Celular" maskFn={maskPhone} />
                 </div>
-              ) : (
-                <div />
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={closeModal}
-                  disabled={isSubmitting}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
-                >
-                  {isSubmitting ? 'Salvando...' : 'Salvar'}
-                </Button>
               </div>
-            </DialogFooter>
-          </form>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 mb-4 ml-1">Sistema de Endereços</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <AddressBlock
+                    form={form}
+                    prefix=""
+                    title="Endereço Principal"
+                    fetchAddress={fetchAddress}
+                  />
+                  <AddressBlock
+                    form={form}
+                    prefix="entrega"
+                    title="Endereço de Entrega"
+                    onCopy={() => copyAddr('entrega')}
+                    fetchAddress={fetchAddress}
+                  />
+                  <AddressBlock
+                    form={form}
+                    prefix="cobranca"
+                    title="Endereço de Cobrança"
+                    onCopy={() => copyAddr('cobranca')}
+                    fetchAddress={fetchAddress}
+                  />
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
         </Form>
       </DialogContent>
     </Dialog>

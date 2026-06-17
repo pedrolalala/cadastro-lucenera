@@ -93,6 +93,12 @@ export default function Clientes() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+            onClick={() => setActiveModal('cliente')}
+          >
+            Novo Cliente
+          </Button>
         </div>
       </div>
 

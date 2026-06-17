@@ -8070,6 +8070,15 @@ export const Constants = {
 //     USING: true
 //     WITH CHECK: true
 // Table: estoque_itens
+//   Policy "authenticated_delete_estoque_itens" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_insert_estoque_itens" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "authenticated_select_estoque_itens" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_update_estoque_itens" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "estoque_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::usuario_role, 'gerente'::usuario_role, 'operador'::usuario_role])))))
 //   Policy "estoque_insert" (INSERT, PERMISSIVE) roles={authenticated}
@@ -8393,6 +8402,16 @@ export const Constants = {
 //   Policy "separacoes_arquivos_authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: solicitacoes_compra
+//   Policy "authenticated_delete_solicitacoes_compra" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_insert_solicitacoes_compra" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "authenticated_select_solicitacoes_compra" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_update_solicitacoes_compra" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: sync_history
 //   Policy "sync_insert" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: (EXISTS ( SELECT 1    FROM usuarios u   WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::usuario_role, 'gerente'::usuario_role, 'operador'::usuario_role])))))
@@ -8452,7 +8471,6 @@ export const Constants = {
 // for non-superuser roles (including the anon and authenticated roles used by the app).
 // You MUST create RLS policies for these tables to allow data access.
 //   - logs_operacoes
-//   - solicitacoes_compra
 
 // --- DATABASE FUNCTIONS ---
 // FUNCTION admin_update_user_password(uuid, text)
