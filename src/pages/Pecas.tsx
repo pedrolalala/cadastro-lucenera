@@ -154,7 +154,7 @@ export default function Pecas() {
         </div>
         <Button
           onClick={() => setActiveModal('peca')}
-          className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm w-full sm:w-auto"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nova Peça
@@ -209,7 +209,7 @@ export default function Pecas() {
                     <TableRow>
                       <TableCell colSpan={4} className="h-32 text-center text-slate-500">
                         <div className="flex justify-center items-center h-full">
-                          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -233,7 +233,7 @@ export default function Pecas() {
                         className={cn(
                           'cursor-pointer transition-colors border-l-4',
                           selectedPecaId === p.id
-                            ? 'bg-amber-50/60 border-l-amber-600 hover:bg-amber-50'
+                            ? 'bg-primary/5 border-l-primary hover:bg-primary/10'
                             : 'hover:bg-slate-50/80 border-l-transparent',
                         )}
                       >
@@ -365,7 +365,7 @@ export default function Pecas() {
                                     'font-medium px-2 py-0.5 rounded-full',
                                     i.quantidade > 0
                                       ? 'bg-emerald-100 text-emerald-700'
-                                      : 'bg-red-100 text-red-700',
+                                      : 'bg-destructive/10 text-destructive',
                                   )}
                                 >
                                   {i.quantidade}

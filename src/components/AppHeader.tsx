@@ -54,7 +54,7 @@ export function AppHeader() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="bg-amber-600 hover:bg-amber-700 text-white shadow-md border-0 transition-all active:scale-95">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md border-0 transition-all active:scale-95">
               <Plus className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Novo Cadastro</span>
               <span className="sm:hidden">Novo</span>

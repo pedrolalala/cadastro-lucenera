@@ -12,13 +12,13 @@ export function AppSidebar() {
   ]
 
   return (
-    <aside className="hidden md:flex flex-col w-64 border-r bg-slate-900 text-slate-100 min-h-screen shrink-0">
-      <div className="h-16 flex items-center px-6 border-b border-slate-800">
-        <Hexagon className="w-6 h-6 text-amber-500 mr-3" />
-        <span className="text-xl font-bold tracking-tight text-white">Lucenera</span>
+    <aside className="hidden md:flex flex-col w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground min-h-screen shrink-0">
+      <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
+        <Hexagon className="w-6 h-6 text-sidebar-primary mr-3" />
+        <span className="text-xl font-bold tracking-tight text-sidebar-foreground">Lucenera</span>
       </div>
 
-      <div className="px-4 py-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+      <div className="px-4 py-6 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
         Menu Principal
       </div>
 
@@ -30,19 +30,21 @@ export function AppSidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group',
+                'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group relative',
                 isActive
-                  ? 'bg-slate-800 text-amber-500'
-                  : 'text-slate-300 hover:bg-slate-800/50 hover:text-white',
+                  ? 'bg-sidebar-accent text-sidebar-primary'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
               )}
             >
               {isActive && (
-                <div className="absolute left-0 w-1 h-8 bg-amber-500 rounded-r-md animate-fade-in-up" />
+                <div className="absolute left-0 w-1 h-8 bg-sidebar-primary rounded-r-md animate-fade-in-up" />
               )}
               <item.icon
                 className={cn(
                   'w-5 h-5',
-                  isActive ? 'text-amber-500' : 'text-slate-400 group-hover:text-slate-300',
+                  isActive
+                    ? 'text-sidebar-primary'
+                    : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground/70',
                 )}
               />
               {item.name}
@@ -51,14 +53,14 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-amber-500">
+          <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-bold text-sidebar-primary">
             AD
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium">Admin User</span>
-            <span className="text-xs text-slate-500">admin@lucenera.com</span>
+            <span className="text-sm font-medium text-sidebar-foreground">Admin User</span>
+            <span className="text-xs text-sidebar-foreground/60">admin@lucenera.com</span>
           </div>
         </div>
       </div>

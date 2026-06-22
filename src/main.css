@@ -6,44 +6,44 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%; /* #f8fafc */
-    --foreground: 222.2 47.4% 11.2%; /* #0f172a */
+    --background: 0 0% 100%; /* Pure White */
+    --foreground: 0 0% 20%; /* Charcoal Grey */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    --card-foreground: 0 0% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 0 0% 20%;
 
-    --primary: 222.2 47.4% 11.2%; /* Navy */
-    --primary-foreground: 210 40% 98%;
+    --primary: 37 90% 51%; /* Laranja Lucenera #f39c12 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%; /* #f1f5f9 */
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 28% 14%;
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%; /* #64748b */
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 38 92% 50%; /* Amber #f59e0b */
+    --accent: 37 90% 51%; /* Laranja Lucenera */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 346 87% 43%; /* #e11d48 */
+    --destructive: 0 84% 60%; /* Critical Red */
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%; /* #e2e8f0 */
+    --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 47.4% 11.2%;
+    --ring: 37 90% 51%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222.2 47.4% 11.2%;
-    --sidebar-primary: 38 92% 50%;
+    --sidebar-background: 222 28% 14%; /* Navy Blue #1a202e */
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 37 90% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96.1%;
-    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-    --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 222.2 47.4% 11.2%;
+    --sidebar-accent: 222 28% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 28% 10%;
+    --sidebar-ring: 37 90% 51%;
   }
 
   .dark {
