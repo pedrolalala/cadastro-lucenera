@@ -142,8 +142,8 @@ export default function Pecas() {
   }, [produtos, selectedPecaId])
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="flex flex-col space-y-6 max-w-[1400px] mx-auto pb-20 lg:pb-0 lg:h-[calc(100vh-130px)]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
             Peças e Produtos
@@ -161,10 +161,10 @@ export default function Pecas() {
         </Button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
         {/* Lista de Peças (Master) */}
-        <div className="w-full lg:w-[70%] space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="w-full lg:w-[70%] flex flex-col gap-4 min-h-0">
+          <div className="flex flex-col sm:flex-row gap-3 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm shrink-0">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
@@ -191,10 +191,10 @@ export default function Pecas() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col">
+            <div className="overflow-auto flex-1 relative">
               <Table>
-                <TableHeader className="bg-slate-50 border-b border-slate-200">
+                <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                   <TableRow>
                     <TableHead className="w-28 text-slate-600 font-semibold pl-6">Código</TableHead>
                     <TableHead className="text-slate-600 font-semibold">Nome da Peça</TableHead>
@@ -262,8 +262,8 @@ export default function Pecas() {
         </div>
 
         {/* Detalhes da Peça (Detail) */}
-        <div className="w-full lg:w-[30%]">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden sticky top-6">
+        <div className="w-full lg:w-[30%] flex flex-col shrink-0 lg:overflow-hidden lg:h-full">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto flex-1">
             {!selectedPeca ? (
               <div className="p-8 text-center flex flex-col items-center justify-center text-slate-500 min-h-[400px]">
                 <Box className="w-12 h-12 mb-4 text-slate-200" />
