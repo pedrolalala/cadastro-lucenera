@@ -1,0 +1,14 @@
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Geral';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Showroom';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Luce Nera';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Islight';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Foco';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Garantia';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Casa Cor';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Reserva';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Separação';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Entrega Futura';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Devolução';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Defeito';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Amostra / Emprestado';
+ALTER TYPE estoque_local ADD VALUE IF NOT EXISTS 'Estoque Citel';

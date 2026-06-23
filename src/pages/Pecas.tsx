@@ -141,6 +141,34 @@ export default function Pecas() {
     return produtos.find((p) => p.id === selectedPecaId) || null
   }, [produtos, selectedPecaId])
 
+  const ALL_SECTORS = [
+    'Estoque Geral',
+    'Showroom',
+    'Estoque Luce Nera',
+    'Estoque Islight',
+    'Estoque Foco',
+    'Estoque Garantia',
+    'Estoque Casa Cor',
+    'Reserva',
+    'Separação',
+    'Entrega Futura',
+    'Devolução',
+    'Estoque Defeito',
+    'Amostra / Emprestado',
+    'Estoque Citel',
+  ]
+
+  const estoquePorSetor = useMemo(() => {
+    return ALL_SECTORS.map((setor) => {
+      const record = estoqueItens.find((i) => i.local === setor)
+      return {
+        local: setor,
+        quantidade: record?.quantidade || 0,
+        quantidade_reservada: record?.quantidade_reservada || 0,
+      }
+    })
+  }, [estoqueItens])
+
   return (
     <div className="flex flex-col space-y-6 max-w-[1400px] mx-auto pb-20 lg:pb-0 lg:h-[calc(100vh-130px)]">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
@@ -327,56 +355,44 @@ export default function Pecas() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {loadingEstoque ? (
-                          Array.from({ length: 3 }).map((_, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="py-2.5 px-3">
-                                <Skeleton className="h-4 w-20 bg-slate-200" />
-                              </TableCell>
-                              <TableCell className="py-2.5 px-3">
-                                <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
-                              </TableCell>
-                              <TableCell className="py-2.5 px-3">
-                                <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : estoqueItens.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={3}
-                              className="text-center text-xs text-slate-500 py-8"
-                            >
-                              <div className="flex flex-col items-center justify-center">
-                                <Box className="h-8 w-8 text-slate-200 mb-2" />
-                                <span>Nenhum registro de estoque.</span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          estoqueItens.map((i) => (
-                            <TableRow key={i.id} className="h-10 hover:bg-slate-100/50">
-                              <TableCell className="py-2 px-3 text-xs font-medium text-slate-700">
-                                {i.local}
-                              </TableCell>
-                              <TableCell className="py-2 px-3 text-xs text-right">
-                                <span
-                                  className={cn(
-                                    'font-medium px-2 py-0.5 rounded-full',
-                                    i.quantidade > 0
-                                      ? 'bg-emerald-100 text-emerald-700'
-                                      : 'bg-destructive/10 text-destructive',
-                                  )}
-                                >
-                                  {i.quantidade}
-                                </span>
-                              </TableCell>
-                              <TableCell className="py-2 px-3 text-xs text-right text-slate-500">
-                                {i.quantidade_reservada || 0}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
+                        {loadingEstoque
+                          ? Array.from({ length: 14 }).map((_, i) => (
+                              <TableRow key={i}>
+                                <TableCell className="py-2.5 px-3">
+                                  <Skeleton className="h-4 w-24 bg-slate-200" />
+                                </TableCell>
+                                <TableCell className="py-2.5 px-3">
+                                  <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
+                                </TableCell>
+                                <TableCell className="py-2.5 px-3">
+                                  <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          : estoquePorSetor.map((i) => (
+                              <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
+                                <TableCell className="py-2 px-3 text-xs font-medium text-slate-700">
+                                  {i.local}
+                                </TableCell>
+                                <TableCell className="py-2 px-3 text-xs text-right">
+                                  <span
+                                    className={cn(
+                                      'font-medium px-2 py-0.5 rounded-full',
+                                      i.quantidade > 0
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : i.quantidade < 0
+                                          ? 'bg-destructive/10 text-destructive'
+                                          : 'text-slate-500',
+                                    )}
+                                  >
+                                    {i.quantidade}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="py-2 px-3 text-xs text-right text-slate-500">
+                                  {i.quantidade_reservada || 0}
+                                </TableCell>
+                              </TableRow>
+                            ))}
                       </TableBody>
                     </Table>
                   </div>

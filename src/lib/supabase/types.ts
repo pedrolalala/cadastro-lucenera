@@ -5512,6 +5512,33 @@ export type Database = {
           },
         ]
       }
+      systems: {
+        Row: {
+          description: string
+          display_order: number | null
+          icon_name: string | null
+          id: string
+          link: string
+          name: string
+        }
+        Insert: {
+          description: string
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          link: string
+          name: string
+        }
+        Update: {
+          description?: string
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          link?: string
+          name?: string
+        }
+        Relationships: []
+      }
       transacoes: {
         Row: {
           acordo: number | null
