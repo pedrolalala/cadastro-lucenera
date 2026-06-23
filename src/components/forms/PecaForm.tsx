@@ -39,7 +39,10 @@ import {
   getMarcas,
   getCategoriasProduto,
   getEstoqueItens,
+  getNextSku,
 } from '@/services/produtos'
+
+const SKU_PREFIX = 'teste'
 
 const schema = z.object({
   codigo_produto: z.coerce.number().min(1, 'Obrigatório'),
@@ -225,6 +228,14 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           status_comercial: (data as any).status_comercial || 'Normal',
         } as FormData)
       })
+    } else {
+      getNextSku(SKU_PREFIX)
+        .then((nextSku) => {
+          if (!form.getValues('sku')) {
+            form.setValue('sku', nextSku, { shouldValidate: true })
+          }
+        })
+        .catch(console.error)
     }
   }, [pecaId, form])
 
@@ -238,6 +249,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           return form.setError('sku', { message: 'Em uso' })
         const payload = {
           ...v,
+          sku: v.sku?.trim() === '' ? null : v.sku,
           fornecedor_principal_id:
             v.fornecedor_principal_id === 'none' ? null : v.fornecedor_principal_id,
         } as any
@@ -267,7 +279,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 label="Código *"
                 type="number"
               />
-              <InputField control={form.control} name="sku" label="SKU" />
+              <InputField control={form.control} name="sku" label="Código Progressivo (SKU)" />
             </div>
             <InputField control={form.control} name="nome" label="Nome *" />
             <SelectField control={form.control} name="marca_id" label="Marca *" options={marcas} />

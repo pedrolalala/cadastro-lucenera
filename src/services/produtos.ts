@@ -110,3 +110,36 @@ export async function getEstoqueItens(produtoId: string) {
   if (error) throw error
   return data
 }
+
+export async function getNextSku(prefix: string = 'teste') {
+  try {
+    const { data, error } = await (supabase.rpc as any)('get_next_sku', { prefix })
+    if (!error && data) {
+      return data as string
+    }
+  } catch (err) {
+    console.warn('RPC get_next_sku failed, using JS fallback', err)
+  }
+
+  // Fallback JS logic
+  const { data: fallbackData, error: fallbackError } = await supabase
+    .from('produtos')
+    .select('sku')
+    .like('sku', `${prefix}%`)
+
+  if (fallbackError) throw fallbackError
+
+  let maxNum = 0
+  for (const row of fallbackData || []) {
+    if (!row.sku) continue
+    const numStr = row.sku.substring(prefix.length).replace(/[^0-9]/g, '')
+    if (numStr) {
+      const num = parseInt(numStr, 10)
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num
+      }
+    }
+  }
+
+  return `${prefix}${(maxNum + 1).toString().padStart(2, '0')}`
+}
