@@ -1,8 +1,18 @@
 {
   "_versions": {
-    "salvar-projeto": 15,
-    "update-project": 6,
-    "sync-fechamentos-automatica": 6,
-    "chat-consulta": 3
+    "salvar-projeto": 23,
+    "update-project": 14,
+    "sync-fechamentos-automatica": 14,
+    "chat-consulta": 11,
+    "chat-agent": 8,
+    "welcome-email": 9,
+    "generate-report": 29,
+    "sync-sharepoint": 7,
+    "sync-teams": 7,
+    "enviar-confirmacao-email": 7,
+    "parse-budget-pdf": 11,
+    "process-budget-pdf": 9,
+    "process-billing-automation": 8,
+    "process-remittance": 6
   }
 }
