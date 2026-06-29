@@ -143,3 +143,52 @@ export async function getNextSku(prefix: string = 'teste') {
 
   return `${prefix}${(maxNum + 1).toString().padStart(2, '0')}`
 }
+
+export async function getAllProdutosBatched(
+  batchSize = 500,
+  onProgress?: (loaded: number, total: number | null) => void,
+) {
+  const { count } = await supabase.from('produtos').select('*', { count: 'exact', head: true })
+
+  let allData: any[] = []
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('produtos')
+      .select(`
+        *,
+        marca:marcas(nome),
+        fornecedor:contatos!produtos_fornecedor_principal_id_fkey(nome),
+        categoria_rel:categorias_produto(nome)
+      `)
+      .order('nome')
+      .range(offset, offset + batchSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allData = [...allData, ...data]
+      onProgress?.(allData.length, count ?? null)
+      if (data.length < batchSize) {
+        hasMore = false
+      } else {
+        offset += batchSize
+      }
+    }
+  }
+
+  return allData
+}
+
+export async function getProdutoEstoqueDetalhado(produtoId: string) {
+  const { data, error } = await supabase
+    .from('vw_produtos_estoque_detalhado')
+    .select('*')
+    .eq('id', produtoId)
+    .single()
+  if (error) throw error
+  return data
+}

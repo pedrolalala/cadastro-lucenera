@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,72 +26,60 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Search, Edit, Trash2, Box, Plus } from 'lucide-react'
+import { Search, Box, Plus } from 'lucide-react'
 import useDataStore from '@/stores/use-data-store'
-import { getProdutos, deleteProduto, getEstoqueItens } from '@/services/produtos'
-import { Database } from '@/lib/supabase/types'
+import { getAllProdutosBatched, deleteProduto } from '@/services/produtos'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { PecaDetailsPanel } from '@/components/pecas/PecaDetailsPanel'
 
-type ProdutoRow = Database['public']['Tables']['produtos']['Row']
-type Produto = ProdutoRow & {
-  marca?: { nome: string } | null
-  fornecedor?: { nome: string } | null
-  categoria_rel?: { nome: string } | null
-}
+const formatCurrency = (v: number | null | undefined) =>
+  v == null
+    ? 'R$ 0,00'
+    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+
+const VISIBLE_BATCH = 100
 
 export default function Pecas() {
   const { activeModal, setActiveModal } = useDataStore()
   const { toast } = useToast()
 
-  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [produtos, setProdutos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [progress, setProgress] = useState<{ loaded: number; total: number | null }>({
+    loaded: 0,
+    total: null,
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategoria, setFilterCategoria] = useState('todas')
-
+  const [filterAtivo, setFilterAtivo] = useState('todos')
   const [selectedPecaId, setSelectedPecaId] = useState<string | null>(null)
-  const [estoqueItens, setEstoqueItens] = useState<any[]>([])
-  const [loadingEstoque, setLoadingEstoque] = useState(false)
-
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_BATCH)
 
-  const loadProdutos = async () => {
+  const loadProdutos = useCallback(async () => {
     setLoading(true)
+    setProgress({ loaded: 0, total: null })
     try {
-      const data = await getProdutos()
-      setProdutos(data as Produto[])
-    } catch (e) {
+      const data = await getAllProdutosBatched(500, (loaded, total) =>
+        setProgress({ loaded, total }),
+      )
+      setProdutos(data)
+    } catch {
       toast({ title: 'Erro', description: 'Falha ao carregar as peças.', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   useEffect(() => {
-    if (activeModal === null) {
-      loadProdutos()
-    }
-  }, [activeModal])
+    if (activeModal === null) loadProdutos()
+  }, [activeModal, loadProdutos])
 
   useEffect(() => {
-    if (selectedPecaId) {
-      setLoadingEstoque(true)
-      getEstoqueItens(selectedPecaId)
-        .then((data) => setEstoqueItens(data || []))
-        .catch(() =>
-          toast({
-            title: 'Erro',
-            description: 'Falha ao carregar estoque.',
-            variant: 'destructive',
-          }),
-        )
-        .finally(() => setLoadingEstoque(false))
-    } else {
-      setEstoqueItens([])
-    }
-  }, [selectedPecaId, toast])
+    setVisibleCount(VISIBLE_BATCH)
+  }, [searchTerm, filterCategoria, filterAtivo])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -100,10 +88,8 @@ export default function Pecas() {
       await deleteProduto(deleteId)
       toast({ title: 'Sucesso', description: 'Peça removida com sucesso!' })
       setProdutos((prev) => prev.filter((p) => p.id !== deleteId))
-      if (selectedPecaId === deleteId) {
-        setSelectedPecaId(null)
-      }
-    } catch (e) {
+      if (selectedPecaId === deleteId) setSelectedPecaId(null)
+    } catch {
       toast({ title: 'Erro', description: 'Falha ao remover a peça.', variant: 'destructive' })
     } finally {
       setIsDeleting(false)
@@ -111,66 +97,48 @@ export default function Pecas() {
     }
   }
 
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value == null) return 'R$ 0,00'
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-  }
-
-  const categorias = useMemo(() => {
-    return Array.from(
-      new Set(produtos.map((p) => p.categoria_rel?.nome || p.categoria).filter(Boolean)),
-    ) as string[]
-  }, [produtos])
+  const categorias = useMemo(
+    () =>
+      Array.from(
+        new Set(produtos.map((p) => p.categoria_rel?.nome || p.categoria).filter(Boolean)),
+      ) as string[],
+    [produtos],
+  )
 
   const filtered = useMemo(() => {
+    const term = searchTerm.toLowerCase()
     return produtos.filter((p) => {
       const matchSearch =
-        searchTerm === '' ||
-        p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(p.codigo_produto || '').includes(searchTerm) ||
-        String(p.sku || '')
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+        !term ||
+        (p.nome && p.nome.toLowerCase().includes(term)) ||
+        String(p.codigo_produto || '').includes(term) ||
+        (p.sku && p.sku.toLowerCase().includes(term)) ||
+        (p.referencia && p.referencia.toLowerCase().includes(term))
       const catName = p.categoria_rel?.nome || p.categoria || ''
       const matchCat = filterCategoria === 'todas' || catName === filterCategoria
-      return matchSearch && matchCat
+      const matchAtivo =
+        filterAtivo === 'todos' ||
+        (filterAtivo === 'ativos' && p.ativo) ||
+        (filterAtivo === 'inativos' && !p.ativo)
+      return matchSearch && matchCat && matchAtivo
     })
-  }, [produtos, searchTerm, filterCategoria])
+  }, [produtos, searchTerm, filterCategoria, filterAtivo])
 
-  const selectedPeca = useMemo(() => {
-    return produtos.find((p) => p.id === selectedPecaId) || null
-  }, [produtos, selectedPecaId])
+  const selectedPeca = useMemo(
+    () => produtos.find((p) => p.id === selectedPecaId) || null,
+    [produtos, selectedPecaId],
+  )
+  const visibleItems = filtered.slice(0, visibleCount)
 
-  const ALL_SECTORS = [
-    'Estoque Geral',
-    'Showroom',
-    'Estoque Luce Nera',
-    'Estoque Islight',
-    'Estoque Foco',
-    'Estoque Garantia',
-    'Estoque Casa Cor',
-    'Reserva',
-    'Separação',
-    'Entrega Futura',
-    'Devolução',
-    'Estoque Defeito',
-    'Amostra / Emprestado',
-    'Estoque Citel',
-  ]
-
-  const estoquePorSetor = useMemo(() => {
-    return ALL_SECTORS.map((setor) => {
-      const record = estoqueItens.find((i) => i.local === setor)
-      return {
-        local: setor,
-        quantidade: record?.quantidade || 0,
-        quantidade_reservada: record?.quantidade_reservada || 0,
-      }
-    })
-  }, [estoqueItens])
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 300 && visibleCount < filtered.length) {
+      setVisibleCount((prev) => Math.min(prev + VISIBLE_BATCH, filtered.length))
+    }
+  }
 
   return (
-    <div className="flex flex-col space-y-6 max-w-[1400px] mx-auto pb-20 lg:pb-0 lg:h-[calc(100vh-130px)]">
+    <div className="flex flex-col space-y-6 max-w-[1400px] mx-auto pb-20 lg:pb-0 lg:h-[calc(100vh-130px)] animate-fade-in-up">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
@@ -190,19 +158,18 @@ export default function Pecas() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-        {/* Lista de Peças (Master) */}
         <div className="w-full lg:w-[70%] flex flex-col gap-4 min-h-0">
-          <div className="flex flex-col sm:flex-row gap-3 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm shrink-0">
+          <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm shrink-0">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Buscar por código, nome ou SKU..."
+                placeholder="Buscar por código, nome, SKU ou referência..."
                 className="pl-9 bg-slate-50 border-slate-200"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="w-full sm:w-64 shrink-0">
+            <div className="w-full sm:w-48 shrink-0">
               <Select value={filterCategoria} onValueChange={setFilterCategoria}>
                 <SelectTrigger className="bg-slate-50 border-slate-200">
                   <SelectValue placeholder="Categoria" />
@@ -217,10 +184,27 @@ export default function Pecas() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-full sm:w-40 shrink-0">
+              <Select value={filterAtivo} onValueChange={setFilterAtivo}>
+                <SelectTrigger className="bg-slate-50 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="ativos">Ativos</SelectItem>
+                  <SelectItem value="inativos">Inativos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col">
-            <div className="overflow-auto flex-1 relative">
+            <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100 shrink-0">
+              {loading
+                ? `Carregando... ${progress.loaded}${progress.total ? `/${progress.total}` : ''} peças`
+                : `Exibindo ${visibleItems.length} de ${filtered.length} peças${filtered.length !== produtos.length ? ` (de ${produtos.length} total)` : ''}`}
+            </div>
+            <div className="overflow-auto flex-1 relative" onScroll={handleScroll}>
               <Table>
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                   <TableRow>
@@ -235,16 +219,21 @@ export default function Pecas() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-32 text-center text-slate-500">
-                        <div className="flex justify-center items-center h-full">
-                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      <TableCell colSpan={4} className="h-32 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          <span className="text-xs text-slate-500">
+                            {progress.loaded > 0
+                              ? `Carregadas ${progress.loaded} peças...`
+                              : 'Iniciando carregamento...'}
+                          </span>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filtered.length === 0 ? (
+                  ) : visibleItems.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="h-40 text-center">
-                        <div className="flex flex-col items-center justify-center text-slate-400">
+                        <div className="flex flex-col items-center text-slate-400">
                           <Box className="w-10 h-10 mb-3 text-slate-300" />
                           <p className="text-slate-600 font-medium">Nenhuma peça encontrada</p>
                           <p className="text-sm">
@@ -254,7 +243,7 @@ export default function Pecas() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((p) => (
+                    visibleItems.map((p) => (
                       <TableRow
                         key={p.id}
                         onClick={() => setSelectedPecaId(p.id)}
@@ -271,135 +260,44 @@ export default function Pecas() {
                             <div className="text-[10px] text-slate-400 mt-0.5">{p.sku}</div>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium text-slate-900">{p.nome}</TableCell>
+                        <TableCell className="font-medium text-slate-900">
+                          <div className="flex items-center gap-2">
+                            {p.nome}
+                            {!p.ativo && (
+                              <span className="text-[10px] text-red-500 font-semibold uppercase">
+                                Inativo
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
                             {p.categoria_rel?.nome || p.categoria || 'Sem categoria'}
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-medium text-slate-700 pr-6">
-                          {formatCurrency((p as any).valor_venda || p.preco_venda)}
+                          {formatCurrency(p.valor_venda || p.preco_venda)}
                         </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
+              {visibleCount < filtered.length && !loading && (
+                <div className="py-3 text-center text-xs text-slate-400">
+                  Role para carregar mais... ({filtered.length - visibleCount} restantes)
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Detalhes da Peça (Detail) */}
         <div className="w-full lg:w-[30%] flex flex-col shrink-0 lg:overflow-hidden lg:h-full">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto flex-1">
-            {!selectedPeca ? (
-              <div className="p-8 text-center flex flex-col items-center justify-center text-slate-500 min-h-[400px]">
-                <Box className="w-12 h-12 mb-4 text-slate-200" />
-                <h3 className="font-medium text-slate-900 mb-1">Nenhuma peça selecionada</h3>
-                <p className="text-sm">
-                  Clique em uma peça na lista para ver seus detalhes e estoque.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col min-h-[400px]">
-                <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 leading-tight">
-                      {selectedPeca.nome}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1.5 font-mono bg-slate-200/50 inline-block px-1.5 py-0.5 rounded">
-                      Cód: {selectedPeca.codigo_produto}{' '}
-                      {selectedPeca.sku ? `| SKU: ${selectedPeca.sku}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      className="bg-slate-900 hover:bg-slate-800 text-white h-8 text-xs w-full"
-                      onClick={() => setActiveModal('peca', selectedPeca.id)}
-                    >
-                      <Edit className="h-3 w-3 mr-1.5" />
-                      Editar Peça
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 w-full"
-                      onClick={() => setDeleteId(selectedPeca.id)}
-                    >
-                      <Trash2 className="h-3 w-3 mr-1.5" />
-                      Excluir
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col">
-                  <h4 className="text-sm font-semibold mb-3 flex items-center text-slate-700">
-                    <Box className="w-4 h-4 mr-2 text-slate-400" />
-                    Estoque Integrado
-                  </h4>
-
-                  <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
-                    <Table>
-                      <TableHeader className="bg-slate-100/80">
-                        <TableRow>
-                          <TableHead className="h-9 py-2 px-3 text-xs text-slate-600">
-                            Setor
-                          </TableHead>
-                          <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                            Atual
-                          </TableHead>
-                          <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                            Reserv.
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {loadingEstoque
-                          ? Array.from({ length: 14 }).map((_, i) => (
-                              <TableRow key={i}>
-                                <TableCell className="py-2.5 px-3">
-                                  <Skeleton className="h-4 w-24 bg-slate-200" />
-                                </TableCell>
-                                <TableCell className="py-2.5 px-3">
-                                  <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
-                                </TableCell>
-                                <TableCell className="py-2.5 px-3">
-                                  <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          : estoquePorSetor.map((i) => (
-                              <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
-                                <TableCell className="py-2 px-3 text-xs font-medium text-slate-700">
-                                  {i.local}
-                                </TableCell>
-                                <TableCell className="py-2 px-3 text-xs text-right">
-                                  <span
-                                    className={cn(
-                                      'font-medium px-2 py-0.5 rounded-full',
-                                      i.quantidade > 0
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : i.quantidade < 0
-                                          ? 'bg-destructive/10 text-destructive'
-                                          : 'text-slate-500',
-                                    )}
-                                  >
-                                    {i.quantidade}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="py-2 px-3 text-xs text-right text-slate-500">
-                                  {i.quantidade_reservada || 0}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <PecaDetailsPanel
+            peca={selectedPeca}
+            onEdit={() => setActiveModal('peca', selectedPeca?.id)}
+            onDelete={() => selectedPeca && setDeleteId(selectedPeca.id)}
+          />
         </div>
       </div>
 
