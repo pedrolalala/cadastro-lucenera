@@ -183,6 +183,76 @@ export async function getAllProdutosBatched(
   return allData
 }
 
+export async function getProdutosFiltradosBatched(
+  params: {
+    searchTerm?: string
+    marcaId?: string
+    categoriaId?: string
+    ativoFilter?: boolean
+  },
+  batchSize = 500,
+  onProgress?: (loaded: number, total: number | null) => void,
+) {
+  const applyFilters = (query: any) => {
+    let q = query
+    if (params.marcaId) q = q.eq('marca_id', params.marcaId)
+    if (params.categoriaId) q = q.eq('categoria_id', params.categoriaId)
+    if (params.ativoFilter !== undefined) q = q.eq('ativo', params.ativoFilter)
+    if (params.searchTerm) {
+      const term = params.searchTerm
+      const numeric = term.replace(/[^0-9]/g, '')
+      if (numeric) {
+        q = q.or(
+          `nome.ilike.%${term}%,sku.ilike.%${term}%,referencia.ilike.%${term}%,codigo_produto.eq.${numeric}`,
+        )
+      } else {
+        q = q.or(`nome.ilike.%${term}%,sku.ilike.%${term}%,referencia.ilike.%${term}%`)
+      }
+    }
+    return q
+  }
+
+  const countQuery = applyFilters(
+    supabase.from('produtos').select('*', { count: 'exact', head: true }),
+  )
+  const { count } = await countQuery
+
+  let allData: any[] = []
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    let query = supabase
+      .from('produtos')
+      .select(`
+        *,
+        marca:marcas(nome),
+        fornecedor:contatos!produtos_fornecedor_principal_id_fkey(nome),
+        categoria_rel:categorias_produto(nome)
+      `)
+      .order('nome')
+      .range(offset, offset + batchSize - 1)
+
+    query = applyFilters(query)
+
+    const { data, error } = await query
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allData = [...allData, ...data]
+      onProgress?.(allData.length, count ?? null)
+      if (data.length < batchSize) {
+        hasMore = false
+      } else {
+        offset += batchSize
+      }
+    }
+  }
+
+  return allData
+}
+
 export async function getProdutoEstoqueDetalhado(produtoId: string) {
   const { data, error } = await supabase
     .from('vw_produtos_estoque_detalhado')
