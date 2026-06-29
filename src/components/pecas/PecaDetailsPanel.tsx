@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Box, Edit, Trash2 } from 'lucide-react'
-import { getProdutoEstoqueDetalhado, getEstoqueItens } from '@/services/produtos'
+import { getEstoqueItens } from '@/services/produtos'
 import { buildEstoquePorSetor } from '@/lib/estoque-sectors'
 import { cn } from '@/lib/utils'
 
@@ -40,17 +40,10 @@ export function PecaDetailsPanel({
     setLoading(true)
     ;(async () => {
       try {
-        const data = await getProdutoEstoqueDetalhado(peca.id)
-        if (cancelled) return
-        const setores = data?.estoque_setores
-        setEstoqueData(Array.isArray(setores) ? setores : [])
+        const items = await getEstoqueItens(peca.id)
+        if (!cancelled) setEstoqueData(items || [])
       } catch {
-        try {
-          const items = await getEstoqueItens(peca.id)
-          if (!cancelled) setEstoqueData(items || [])
-        } catch {
-          if (!cancelled) setEstoqueData([])
-        }
+        if (!cancelled) setEstoqueData([])
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -60,8 +53,16 @@ export function PecaDetailsPanel({
     }
   }, [peca])
 
-  const estoquePorSetor = useMemo(() => buildEstoquePorSetor(estoqueData), [estoqueData])
+  const hasStockRecords = estoqueData.length > 0
+  const estoquePorSetor = useMemo(
+    () => (hasStockRecords ? buildEstoquePorSetor(estoqueData) : []),
+    [estoqueData, hasStockRecords],
+  )
   const totalGeral = estoquePorSetor.reduce((s, i) => s + i.quantidade, 0)
+  const totalDisponivel = estoquePorSetor.reduce(
+    (s, i) => s + (i.quantidade - (i.quantidade_reservada || 0)),
+    0,
+  )
 
   if (!peca) {
     return (
@@ -81,7 +82,7 @@ export function PecaDetailsPanel({
         <div>
           <h3 className="font-semibold text-slate-900 leading-tight">{peca.nome}</h3>
           <p className="text-xs text-slate-500 mt-1.5 font-mono bg-slate-200/50 inline-block px-1.5 py-0.5 rounded">
-            Cód: {peca.codigo_produto} {peca.sku ? `| SKU: ${peca.sku}` : ''}
+            Cód. Legado: {peca.codigo_legado ?? '-'} {peca.sku ? `| SKU: ${peca.sku}` : ''}
           </p>
           {peca.referencia && <p className="text-xs text-slate-400 mt-1">Ref: {peca.referencia}</p>}
           <div className="flex items-center gap-2 mt-2">
@@ -122,41 +123,74 @@ export function PecaDetailsPanel({
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-sm font-semibold flex items-center text-slate-700">
             <Box className="w-4 h-4 mr-2 text-slate-400" />
-            Estoque Integrado
+            Estoque por Local
           </h4>
-          <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
-            Total: {totalGeral}
-          </span>
+          {hasStockRecords && (
+            <div className="flex gap-2">
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                Total: {totalGeral}
+              </span>
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                Disponível: {totalDisponivel}
+              </span>
+            </div>
+          )}
         </div>
-        <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
-          <Table>
-            <TableHeader className="bg-slate-100/80">
-              <TableRow>
-                <TableHead className="h-9 py-2 px-3 text-xs text-slate-600">Setor</TableHead>
-                <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                  Atual
-                </TableHead>
-                <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                  Reserv.
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading
-                ? Array.from({ length: 14 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="py-2.5 px-3">
-                        <Skeleton className="h-4 w-24 bg-slate-200" />
-                      </TableCell>
-                      <TableCell className="py-2.5 px-3">
-                        <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
-                      </TableCell>
-                      <TableCell className="py-2.5 px-3">
-                        <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : estoquePorSetor.map((i) => (
+        {loading ? (
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <TableHead className="h-9 py-2 px-3 text-xs text-slate-600">Local</TableHead>
+                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
+                    Qtd. Total
+                  </TableHead>
+                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
+                    Disponível
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="py-2.5 px-3">
+                      <Skeleton className="h-4 w-24 bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="py-2.5 px-3">
+                      <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="py-2.5 px-3">
+                      <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : !hasStockRecords ? (
+          <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
+            <p className="text-sm text-slate-500 text-center">
+              Sem movimentação de estoque registrada
+            </p>
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <TableHead className="h-9 py-2 px-3 text-xs text-slate-600">Local</TableHead>
+                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
+                    Qtd. Total no Local
+                  </TableHead>
+                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
+                    Disponível no Local
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {estoquePorSetor.map((i) => {
+                  const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
+                  return (
                     <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
                       <TableCell className="py-2 px-3 text-xs font-medium text-slate-700">
                         {i.local}
@@ -165,24 +199,33 @@ export function PecaDetailsPanel({
                         <span
                           className={cn(
                             'font-medium px-2 py-0.5 rounded-full',
-                            i.quantidade > 0
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : i.quantidade < 0
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'text-slate-500',
+                            i.quantidade > 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
                           )}
                         >
                           {i.quantidade}
                         </span>
                       </TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-slate-500">
-                        {i.quantidade_reservada || 0}
+                      <TableCell className="py-2 px-3 text-xs text-right">
+                        <span
+                          className={cn(
+                            'font-medium px-2 py-0.5 rounded-full',
+                            disponivelLocal > 0
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : disponivelLocal < 0
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'text-slate-500',
+                          )}
+                        >
+                          {disponivelLocal}
+                        </span>
                       </TableCell>
                     </TableRow>
-                  ))}
-            </TableBody>
-          </Table>
-        </div>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
     </div>
   )

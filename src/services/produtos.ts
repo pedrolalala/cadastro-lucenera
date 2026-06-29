@@ -121,7 +121,6 @@ export async function getNextSku(prefix: string = 'teste') {
     console.warn('RPC get_next_sku failed, using JS fallback', err)
   }
 
-  // Fallback JS logic
   const { data: fallbackData, error: fallbackError } = await supabase
     .from('produtos')
     .select('sku')
@@ -267,16 +266,15 @@ export interface ProdutoEstoqueRow {
   id: string
   nome: string
   sku: string | null
-  codigo_produto: number | null
+  codigo_legado: number | null
   referencia: string | null
   categoria: string | null
-  preco_venda: number | null
   valor_venda: number | null
+  preco_venda: number | null
   marca_nome: string | null
-  estoque_local: string | null
-  estoque_quantidade: number | null
-  estoque_reservada: number | null
-  estoque_disponivel: number | null
+  estoque_total: number
+  estoque_reservado: number
+  estoque_disponivel: number
   has_estoque: boolean
 }
 
@@ -297,7 +295,7 @@ export async function getProdutosEstoqueFiltradoBatched(
   }
 
   const selectFields = `
-    id, nome, sku, codigo_produto, referencia, categoria, descricao_tecnica,
+    id, nome, sku, codigo_produto, codigo_legado, referencia, categoria, descricao_tecnica,
     preco_venda, valor_venda, ativo,
     marca:marcas(nome),
     categoria_rel:categorias_produto(nome),
@@ -349,7 +347,7 @@ export async function getProdutosEstoqueFiltradoBatched(
 
     const exactFn = (q: any) => {
       if (numeric) {
-        return q.or(`sku.eq.${term},referencia.eq.${term},codigo_produto.eq.${numeric}`)
+        return q.or(`sku.eq.${term},referencia.eq.${term},codigo_legado.eq.${numeric}`)
       }
       return q.or(`sku.eq.${term},referencia.eq.${term}`)
     }
@@ -365,52 +363,44 @@ export async function getProdutosEstoqueFiltradoBatched(
     products = await fetchBatched()
   }
 
-  const rows: ProdutoEstoqueRow[] = []
-  for (const p of products) {
+  const rows: ProdutoEstoqueRow[] = products.map((p) => {
     const marcaNome = p.marca?.nome || null
     const categoriaNome = p.categoria_rel?.nome || p.categoria || null
     const estoqueItems = Array.isArray(p.estoque) ? p.estoque : []
 
-    if (estoqueItems.length === 0) {
-      rows.push({
-        id: p.id,
-        nome: p.nome,
-        sku: p.sku,
-        codigo_produto: p.codigo_produto,
-        referencia: p.referencia,
-        categoria: categoriaNome,
-        preco_venda: p.preco_venda,
-        valor_venda: p.valor_venda,
-        marca_nome: marcaNome,
-        estoque_local: null,
-        estoque_quantidade: null,
-        estoque_reservada: null,
-        estoque_disponivel: null,
-        has_estoque: false,
-      })
-    } else {
-      for (const ei of estoqueItems) {
-        const quantidade = Number(ei.quantidade) || 0
-        const reservada = Number(ei.quantidade_reservada) || 0
-        rows.push({
-          id: p.id,
-          nome: p.nome,
-          sku: p.sku,
-          codigo_produto: p.codigo_produto,
-          referencia: p.referencia,
-          categoria: categoriaNome,
-          preco_venda: p.preco_venda,
-          valor_venda: p.valor_venda,
-          marca_nome: marcaNome,
-          estoque_local: ei.local,
-          estoque_quantidade: quantidade,
-          estoque_reservada: reservada,
-          estoque_disponivel: quantidade - reservada,
-          has_estoque: true,
-        })
-      }
+    const totalQuantidade = estoqueItems.reduce(
+      (sum: number, ei: any) => sum + (Number(ei.quantidade) || 0),
+      0,
+    )
+    const totalReservada = estoqueItems.reduce(
+      (sum: number, ei: any) => sum + (Number(ei.quantidade_reservada) || 0),
+      0,
+    )
+    const disponivel = totalQuantidade - totalReservada
+
+    return {
+      id: p.id,
+      nome: p.nome,
+      sku: p.sku,
+      codigo_legado: p.codigo_legado,
+      referencia: p.referencia,
+      categoria: categoriaNome,
+      valor_venda: p.valor_venda,
+      preco_venda: p.preco_venda,
+      marca_nome: marcaNome,
+      estoque_total: totalQuantidade,
+      estoque_reservado: totalReservada,
+      estoque_disponivel: disponivel,
+      has_estoque: estoqueItems.length > 0,
     }
-  }
+  })
+
+  rows.sort((a, b) => {
+    const aHasStock = a.estoque_disponivel > 0 ? 1 : 0
+    const bHasStock = b.estoque_disponivel > 0 ? 1 : 0
+    if (aHasStock !== bHasStock) return bHasStock - aHasStock
+    return a.nome.localeCompare(b.nome)
+  })
 
   return rows
 }
