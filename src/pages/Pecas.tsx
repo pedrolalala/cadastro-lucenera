@@ -233,12 +233,10 @@ export default function Pecas() {
                 : `Exibindo ${visibleItems.length} de ${produtos.length} registros (apenas produtos ativos)`}
             </div>
             <div className="overflow-auto flex-1 relative" onScroll={handleScroll}>
-              <Table className="min-w-[1000px]">
+              <Table className="min-w-[900px]">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                   <TableRow>
-                    <TableHead className="w-20 text-slate-600 font-semibold pl-6">
-                      Código (Legado)
-                    </TableHead>
+                    <TableHead className="w-20 text-slate-600 font-semibold pl-6">Código</TableHead>
                     <TableHead className="text-slate-600 font-semibold min-w-[180px]">
                       Nome da Peça
                     </TableHead>
@@ -248,20 +246,17 @@ export default function Pecas() {
                       SKU/Referência
                     </TableHead>
                     <TableHead className="text-right text-slate-600 font-semibold w-28">
-                      Preço Venda
+                      Preço de Venda
                     </TableHead>
-                    <TableHead className="text-right text-slate-600 font-semibold w-24">
-                      Qtd. Total
-                    </TableHead>
-                    <TableHead className="text-right text-slate-600 font-semibold w-24 pr-6">
-                      Disponível
+                    <TableHead className="text-right text-slate-600 font-semibold w-32 pr-6">
+                      Quantidade Disponível (Total)
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-32 text-center">
+                      <TableCell colSpan={7} className="h-32 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                           <span className="text-xs text-slate-500">
@@ -274,7 +269,7 @@ export default function Pecas() {
                     </TableRow>
                   ) : visibleItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-40 text-center">
+                      <TableCell colSpan={7} className="h-40 text-center">
                         <div className="flex flex-col items-center text-slate-400">
                           <Box className="w-10 h-10 mb-3 text-slate-300" />
                           <p className="text-slate-600 font-medium">
@@ -337,21 +332,6 @@ export default function Pecas() {
                         </TableCell>
                         <TableCell className="text-right font-medium text-slate-700">
                           {formatCurrency(p.valor_venda || p.preco_venda)}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-medium text-slate-700">
-                          {p.estoque_total}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-medium pr-6">
-                          <span
-                            className={cn(
-                              'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                              p.estoque_disponivel > 0
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-red-100 text-red-600',
-                            )}
-                          >
-                            {p.estoque_disponivel}
-                          </span>
                         </TableCell>
                       </TableRow>
                     ))

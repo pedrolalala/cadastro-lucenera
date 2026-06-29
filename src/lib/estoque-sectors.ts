@@ -22,12 +22,22 @@ export interface EstoqueSetorRow {
 }
 
 export function buildEstoquePorSetor(estoqueItens: any[]): EstoqueSetorRow[] {
-  return ESTOQUE_SETORES.map((setor) => {
-    const record = estoqueItens.find((i) => i.local === setor)
-    return {
-      local: setor,
-      quantidade: Number(record?.quantidade) || 0,
-      quantidade_reservada: Number(record?.quantidade_reservada) || 0,
+  const sectorMap = new Map<string, EstoqueSetorRow>()
+
+  for (const item of estoqueItens) {
+    const local = item.local || 'Estoque'
+    const existing = sectorMap.get(local)
+    if (existing) {
+      existing.quantidade += Number(item.quantidade) || 0
+      existing.quantidade_reservada += Number(item.quantidade_reservada) || 0
+    } else {
+      sectorMap.set(local, {
+        local,
+        quantidade: Number(item.quantidade) || 0,
+        quantidade_reservada: Number(item.quantidade_reservada) || 0,
+      })
     }
-  })
+  }
+
+  return Array.from(sectorMap.values()).sort((a, b) => b.quantidade - a.quantidade)
 }

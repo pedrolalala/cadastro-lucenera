@@ -347,7 +347,7 @@ export async function getProdutosEstoqueFiltradoBatched(
 
     const exactFn = (q: any) => {
       if (numeric) {
-        return q.or(`sku.eq.${term},referencia.eq.${term},codigo_legado.eq.${numeric}`)
+        return q.or(`sku.eq.${term},referencia.eq.${term},codigo_produto.eq.${numeric}`)
       }
       return q.or(`sku.eq.${term},referencia.eq.${term}`)
     }

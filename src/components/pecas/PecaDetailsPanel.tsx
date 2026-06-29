@@ -82,7 +82,7 @@ export function PecaDetailsPanel({
         <div>
           <h3 className="font-semibold text-slate-900 leading-tight">{peca.nome}</h3>
           <p className="text-xs text-slate-500 mt-1.5 font-mono bg-slate-200/50 inline-block px-1.5 py-0.5 rounded">
-            Cód. Legado: {peca.codigo_legado ?? '-'} {peca.sku ? `| SKU: ${peca.sku}` : ''}
+            Código: {peca.codigo_legado ?? '-'} {peca.sku ? `| SKU: ${peca.sku}` : ''}
           </p>
           {peca.referencia && <p className="text-xs text-slate-400 mt-1">Ref: {peca.referencia}</p>}
           <div className="flex items-center gap-2 mt-2">
