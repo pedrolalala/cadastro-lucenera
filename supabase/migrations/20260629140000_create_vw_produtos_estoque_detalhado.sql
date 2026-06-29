@@ -1,5 +1,9 @@
--- Create a view that aggregates stock levels per product across all sectors
-CREATE OR REPLACE VIEW public.vw_produtos_estoque_detalhado AS
+-- Drop the existing view first because the column layout changed (names, order, types).
+-- CREATE OR REPLACE VIEW cannot rename or reorder columns.
+DROP VIEW IF EXISTS public.vw_produtos_estoque_detalhado;
+
+-- Recreate with the full detailed stock view
+CREATE VIEW public.vw_produtos_estoque_detalhado AS
 SELECT
   p.id,
   p.nome,
