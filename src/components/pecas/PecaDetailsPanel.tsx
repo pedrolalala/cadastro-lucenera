@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Box, Edit, Trash2 } from 'lucide-react'
+import { Box, Edit, Trash2, Tag, Layers, DollarSign, Hash, FileText } from 'lucide-react'
 import { getEstoqueItens } from '@/services/produtos'
 import { buildEstoquePorSetor } from '@/lib/estoque-sectors'
 import { cn } from '@/lib/utils'
@@ -19,12 +19,28 @@ const formatCurrency = (v: number | null | undefined) =>
     ? 'R$ 0,00'
     : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 
+interface PecaData {
+  id: string
+  nome: string
+  sku: string | null
+  codigo_produto?: number | null
+  codigo_legado?: number | null
+  referencia: string | null
+  categoria?: string | null
+  marca_nome?: string | null
+  valor_venda: number | null
+  preco_venda: number | null
+  ativo: boolean
+  estoque_total: number
+  estoque_disponivel: number
+}
+
 export function PecaDetailsPanel({
   peca,
   onEdit,
   onDelete,
 }: {
-  peca: any
+  peca: PecaData | null
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -59,10 +75,8 @@ export function PecaDetailsPanel({
     [estoqueData, hasStockRecords],
   )
   const totalGeral = estoquePorSetor.reduce((s, i) => s + i.quantidade, 0)
-  const totalDisponivel = estoquePorSetor.reduce(
-    (s, i) => s + (i.quantidade - (i.quantidade_reservada || 0)),
-    0,
-  )
+  const totalReservado = estoquePorSetor.reduce((s, i) => s + (i.quantidade_reservada || 0), 0)
+  const totalDisponivel = totalGeral - totalReservado
 
   if (!peca) {
     return (
@@ -76,61 +90,86 @@ export function PecaDetailsPanel({
     )
   }
 
+  const codigoDisplay = peca.codigo_produto ?? peca.codigo_legado ?? '-'
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto flex-1">
-      <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-semibold text-slate-900 leading-tight">{peca.nome}</h3>
-          <p className="text-xs text-slate-500 mt-1.5 font-mono bg-slate-200/50 inline-block px-1.5 py-0.5 rounded">
-            Código: {peca.codigo_legado ?? '-'} {peca.sku ? `| SKU: ${peca.sku}` : ''}
-          </p>
-          {peca.referencia && <p className="text-xs text-slate-400 mt-1">Ref: {peca.referencia}</p>}
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs font-medium text-slate-700">
-              {formatCurrency(peca.valor_venda || peca.preco_venda)}
-            </span>
-            <span
-              className={cn(
-                'text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase',
-                peca.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600',
-              )}
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto flex-1 min-w-0">
+      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-slate-900 leading-tight break-words break-all">
+              {peca.nome}
+            </h3>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-xs font-medium text-slate-700">
+                {formatCurrency(peca.valor_venda || peca.preco_venda)}
+              </span>
+              <span
+                className={cn(
+                  'text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase',
+                  peca.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600',
+                )}
+              >
+                {peca.ativo ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 shrink-0">
+            <Button
+              size="sm"
+              className="bg-slate-900 hover:bg-slate-800 text-white h-8 text-xs w-full"
+              onClick={onEdit}
             >
-              {peca.ativo ? 'Ativo' : 'Inativo'}
-            </span>
+              <Edit className="h-3 w-3 mr-1.5" />
+              Editar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 w-full"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3 w-3 mr-1.5" />
+              Excluir
+            </Button>
           </div>
         </div>
-        <div className="flex flex-col gap-2 shrink-0">
-          <Button
-            size="sm"
-            className="bg-slate-900 hover:bg-slate-800 text-white h-8 text-xs w-full"
-            onClick={onEdit}
-          >
-            <Edit className="h-3 w-3 mr-1.5" />
-            Editar
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 w-full"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-3 w-3 mr-1.5" />
-            Excluir
-          </Button>
+      </div>
+
+      <div className="p-4 sm:p-5 space-y-3">
+        <div className="grid grid-cols-1 gap-2">
+          <DetailRow icon={Hash} label="Código" value={String(codigoDisplay)} mono />
+          <DetailRow
+            icon={FileText}
+            label="SKU / Referência"
+            value={peca.sku || peca.referencia || '-'}
+            mono
+          />
+          <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não definida'} />
+          <DetailRow icon={Layers} label="Categoria" value={peca.categoria || 'Sem categoria'} />
+          <DetailRow
+            icon={DollarSign}
+            label="Preço de Venda"
+            value={formatCurrency(peca.valor_venda || peca.preco_venda)}
+          />
         </div>
       </div>
-      <div className="p-5 flex-1 flex flex-col">
-        <div className="flex items-center justify-between mb-3">
+
+      <div className="px-4 sm:px-5 pb-5 flex-1 flex flex-col">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h4 className="text-sm font-semibold flex items-center text-slate-700">
-            <Box className="w-4 h-4 mr-2 text-slate-400" />
+            <Box className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
             Estoque por Local
           </h4>
           {hasStockRecords && (
-            <div className="flex gap-2">
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+            <div className="flex gap-1.5 flex-wrap">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                 Total: {totalGeral}
               </span>
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                Reservado: {totalReservado}
+              </span>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                 Disponível: {totalDisponivel}
               </span>
             </div>
@@ -141,26 +180,26 @@ export function PecaDetailsPanel({
             <Table>
               <TableHeader className="bg-slate-100/80">
                 <TableRow>
-                  <TableHead className="h-9 py-2 px-3 text-xs text-slate-600">Local</TableHead>
-                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                    Qtd. Total
-                  </TableHead>
-                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                    Disponível
-                  </TableHead>
+                  <StockHead>Local</StockHead>
+                  <StockHead right>Total</StockHead>
+                  <StockHead right>Reserv.</StockHead>
+                  <StockHead right>Dispon.</StockHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Array.from({ length: 8 }).map((_, i) => (
+                {Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell className="py-2.5 px-3">
-                      <Skeleton className="h-4 w-24 bg-slate-200" />
+                    <TableCell className="py-2.5 px-2">
+                      <Skeleton className="h-4 w-20 bg-slate-200" />
                     </TableCell>
-                    <TableCell className="py-2.5 px-3">
-                      <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
+                    <TableCell className="py-2.5 px-2">
+                      <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
                     </TableCell>
-                    <TableCell className="py-2.5 px-3">
-                      <Skeleton className="h-4 w-8 ml-auto bg-slate-200" />
+                    <TableCell className="py-2.5 px-2">
+                      <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="py-2.5 px-2">
+                      <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -174,59 +213,110 @@ export function PecaDetailsPanel({
             </p>
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <TableHead className="h-9 py-2 px-3 text-xs text-slate-600">Local</TableHead>
-                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                    Qtd. Total no Local
-                  </TableHead>
-                  <TableHead className="h-9 py-2 px-3 text-xs text-right text-slate-600">
-                    Disponível no Local
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {estoquePorSetor.map((i) => {
-                  const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
-                  return (
-                    <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
-                      <TableCell className="py-2 px-3 text-xs font-medium text-slate-700">
-                        {i.local}
-                      </TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right">
-                        <span
-                          className={cn(
-                            'font-medium px-2 py-0.5 rounded-full',
-                            i.quantidade > 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
-                          )}
-                        >
-                          {i.quantidade}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right">
-                        <span
-                          className={cn(
-                            'font-medium px-2 py-0.5 rounded-full',
-                            disponivelLocal > 0
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : disponivelLocal < 0
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'text-slate-500',
-                          )}
-                        >
-                          {disponivelLocal}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-100/80">
+                  <TableRow>
+                    <StockHead>Local</StockHead>
+                    <StockHead right>Total</StockHead>
+                    <StockHead right>Reserv.</StockHead>
+                    <StockHead right>Dispon.</StockHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {estoquePorSetor.map((i) => {
+                    const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
+                    return (
+                      <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
+                        <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[120px]">
+                          {i.local}
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-right">
+                          <span
+                            className={cn(
+                              'font-medium px-1.5 py-0.5 rounded-full',
+                              i.quantidade > 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
+                            )}
+                          >
+                            {i.quantidade}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-right">
+                          <span
+                            className={cn(
+                              'font-medium px-1.5 py-0.5 rounded-full',
+                              (i.quantidade_reservada || 0) > 0
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'text-slate-400',
+                            )}
+                          >
+                            {i.quantidade_reservada || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-right">
+                          <span
+                            className={cn(
+                              'font-medium px-1.5 py-0.5 rounded-full',
+                              disponivelLocal > 0
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : disponivelLocal < 0
+                                  ? 'bg-destructive/10 text-destructive'
+                                  : 'text-slate-500',
+                            )}
+                          >
+                            {disponivelLocal}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function DetailRow({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="flex items-start gap-2 text-sm min-w-0">
+      <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+      <span className="text-slate-500 shrink-0 min-w-[90px]">{label}:</span>
+      <span
+        className={cn(
+          'font-medium text-slate-800 break-words break-all min-w-0',
+          mono && 'font-mono text-xs',
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function StockHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <TableHead
+      className={cn(
+        'h-9 py-2 px-2 text-[11px] text-slate-600 whitespace-nowrap',
+        right && 'text-right',
+      )}
+    >
+      {children}
+    </TableHead>
   )
 }

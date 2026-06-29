@@ -266,6 +266,7 @@ export interface ProdutoEstoqueRow {
   id: string
   nome: string
   sku: string | null
+  codigo_produto: number | null
   codigo_legado: number | null
   referencia: string | null
   categoria: string | null
@@ -382,6 +383,7 @@ export async function getProdutosEstoqueFiltradoBatched(
       id: p.id,
       nome: p.nome,
       sku: p.sku,
+      codigo_produto: p.codigo_produto,
       codigo_legado: p.codigo_legado,
       referencia: p.referencia,
       categoria: categoriaNome,
