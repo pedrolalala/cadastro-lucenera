@@ -2,13 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Table,
   TableBody,
   TableCell,
@@ -29,7 +22,7 @@ import {
 import { Search, Box, Plus, X } from 'lucide-react'
 import useDataStore from '@/stores/use-data-store'
 import {
-  getProdutosFiltradosBatched,
+  getProdutosEstoqueFiltradoBatched,
   deleteProduto,
   getMarcas,
   getCategoriasProduto,
@@ -61,7 +54,6 @@ export default function Pecas() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [marcaId, setMarcaId] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
-  const [filterAtivo, setFilterAtivo] = useState('todos')
 
   const [marcas, setMarcas] = useState<{ id: string; nome: string }[]>([])
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([])
@@ -91,14 +83,11 @@ export default function Pecas() {
     setLoading(true)
     setProgress({ loaded: 0, total: null })
     try {
-      const ativoFilter =
-        filterAtivo === 'ativos' ? true : filterAtivo === 'inativos' ? false : undefined
-      const data = await getProdutosFiltradosBatched(
+      const data = await getProdutosEstoqueFiltradoBatched(
         {
           searchTerm: debouncedSearch || undefined,
           marcaId: marcaId || undefined,
           categoriaId: categoriaId || undefined,
-          ativoFilter,
         },
         500,
         (loaded, total) => setProgress({ loaded, total }),
@@ -109,7 +98,7 @@ export default function Pecas() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, marcaId, categoriaId, filterAtivo, toast])
+  }, [debouncedSearch, marcaId, categoriaId, toast])
 
   useEffect(() => {
     if (activeModal === null) loadProdutos()
@@ -117,7 +106,7 @@ export default function Pecas() {
 
   useEffect(() => {
     setVisibleCount(VISIBLE_BATCH)
-  }, [debouncedSearch, marcaId, categoriaId, filterAtivo])
+  }, [debouncedSearch, marcaId, categoriaId])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -135,20 +124,29 @@ export default function Pecas() {
     }
   }
 
-  const selectedPeca = useMemo(
-    () => produtos.find((p) => p.id === selectedPecaId) || null,
-    [produtos, selectedPecaId],
-  )
+  const selectedPeca = useMemo(() => {
+    const row = produtos.find((p) => p.id === selectedPecaId)
+    if (!row) return null
+    return {
+      id: row.id,
+      nome: row.nome,
+      sku: row.sku,
+      codigo_produto: row.codigo_produto,
+      referencia: row.referencia,
+      valor_venda: row.valor_venda,
+      preco_venda: row.preco_venda,
+      ativo: true,
+    }
+  }, [produtos, selectedPecaId])
 
   const visibleItems = produtos.slice(0, visibleCount)
-  const hasActiveFilters = !!searchInput || !!marcaId || !!categoriaId || filterAtivo !== 'todos'
+  const hasActiveFilters = !!searchInput || !!marcaId || !!categoriaId
 
   const handleClearFilters = () => {
     setSearchInput('')
     setDebouncedSearch('')
     setMarcaId('')
     setCategoriaId('')
-    setFilterAtivo('todos')
   }
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -187,7 +185,7 @@ export default function Pecas() {
             <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Buscar por código, nome, SKU ou referência..."
+                placeholder="Buscar por SKU, referência, código, nome ou descrição..."
                 className="pl-9 bg-slate-50 border-slate-200"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -213,18 +211,6 @@ export default function Pecas() {
                 allLabel="Todas as Categorias"
               />
             </div>
-            <div className="w-full sm:w-36 shrink-0">
-              <Select value={filterAtivo} onValueChange={setFilterAtivo}>
-                <SelectTrigger className="bg-slate-50 border-slate-200 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="ativos">Ativos</SelectItem>
-                  <SelectItem value="inativos">Inativos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             {hasActiveFilters && (
               <Button
                 variant="ghost"
@@ -242,24 +228,36 @@ export default function Pecas() {
             <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100 shrink-0">
               {loading
                 ? `Carregando... ${progress.loaded}${progress.total ? `/${progress.total}` : ''} peças`
-                : `Exibindo ${visibleItems.length} de ${produtos.length} peças`}
+                : `Exibindo ${visibleItems.length} de ${produtos.length} registros (apenas produtos ativos)`}
             </div>
             <div className="overflow-auto flex-1 relative" onScroll={handleScroll}>
-              <Table>
+              <Table className="min-w-[1200px]">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                   <TableRow>
-                    <TableHead className="w-28 text-slate-600 font-semibold pl-6">Código</TableHead>
-                    <TableHead className="text-slate-600 font-semibold">Nome da Peça</TableHead>
-                    <TableHead className="text-slate-600 font-semibold">Categoria</TableHead>
-                    <TableHead className="text-right text-slate-600 font-semibold pr-6">
+                    <TableHead className="w-20 text-slate-600 font-semibold pl-6">Código</TableHead>
+                    <TableHead className="text-slate-600 font-semibold min-w-[180px]">
+                      Nome da Peça
+                    </TableHead>
+                    <TableHead className="text-slate-600 font-semibold w-32">Marca</TableHead>
+                    <TableHead className="text-slate-600 font-semibold w-32">Categoria</TableHead>
+                    <TableHead className="text-slate-600 font-semibold w-28">SKU</TableHead>
+                    <TableHead className="text-slate-600 font-semibold w-28">Referência</TableHead>
+                    <TableHead className="text-right text-slate-600 font-semibold w-28">
                       Preço Venda
+                    </TableHead>
+                    <TableHead className="text-slate-600 font-semibold w-32">Local</TableHead>
+                    <TableHead className="text-right text-slate-600 font-semibold w-20">
+                      Qtd. Total
+                    </TableHead>
+                    <TableHead className="text-right text-slate-600 font-semibold w-20 pr-6">
+                      Disponível
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-32 text-center">
+                      <TableCell colSpan={10} className="h-32 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                           <span className="text-xs text-slate-500">
@@ -272,7 +270,7 @@ export default function Pecas() {
                     </TableRow>
                   ) : visibleItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-40 text-center">
+                      <TableCell colSpan={10} className="h-40 text-center">
                         <div className="flex flex-col items-center text-slate-400">
                           <Box className="w-10 h-10 mb-3 text-slate-300" />
                           <p className="text-slate-600 font-medium">
@@ -296,43 +294,81 @@ export default function Pecas() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    visibleItems.map((p) => (
-                      <TableRow
-                        key={p.id}
-                        onClick={() => setSelectedPecaId(p.id)}
-                        className={cn(
-                          'cursor-pointer transition-colors border-l-4',
-                          selectedPecaId === p.id
-                            ? 'bg-primary/5 border-l-primary hover:bg-primary/10'
-                            : 'hover:bg-slate-50/80 border-l-transparent',
-                        )}
-                      >
-                        <TableCell className="font-mono text-xs text-slate-500 pl-6">
-                          {p.codigo_produto != null ? p.codigo_produto : '-'}
-                          {p.sku && (
-                            <div className="text-[10px] text-slate-400 mt-0.5">{p.sku}</div>
+                    visibleItems.map((p, idx) => {
+                      const isFirstInGroup = idx === 0 || visibleItems[idx - 1].id !== p.id
+                      return (
+                        <TableRow
+                          key={`${p.id}-${p.estoque_local || 'no-stock'}-${idx}`}
+                          onClick={() => setSelectedPecaId(p.id)}
+                          className={cn(
+                            'cursor-pointer transition-colors',
+                            selectedPecaId === p.id
+                              ? 'bg-primary/5 hover:bg-primary/10'
+                              : 'hover:bg-slate-50/80',
+                            isFirstInGroup && idx > 0 && 'border-t-2 border-t-slate-200',
                           )}
-                        </TableCell>
-                        <TableCell className="font-medium text-slate-900">
-                          <div className="flex items-center gap-2">
-                            {p.nome}
-                            {!p.ativo && (
-                              <span className="text-[10px] text-red-500 font-semibold uppercase">
-                                Inativo
-                              </span>
+                        >
+                          <TableCell className="font-mono text-xs text-slate-500 pl-6">
+                            {p.codigo_produto != null ? p.codigo_produto : '-'}
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-900">
+                            <div className="flex items-center gap-2">
+                              {p.nome}
+                              {isFirstInGroup && !p.has_estoque && (
+                                <span className="text-[10px] text-amber-600 font-semibold uppercase">
+                                  Sem estoque
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">
+                            {p.marca_nome || (
+                              <span className="text-slate-400 italic">Marca não definida</span>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
-                            {p.categoria_rel?.nome || p.categoria || 'Sem categoria'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium text-slate-700 pr-6">
-                          {formatCurrency(p.valor_venda || p.preco_venda)}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
+                              {p.categoria || 'Sem categoria'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-slate-600">
+                            {p.sku || '-'}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-slate-600">
+                            {p.referencia || '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-slate-700">
+                            {formatCurrency(p.valor_venda || p.preco_venda)}
+                          </TableCell>
+                          {!p.has_estoque ? (
+                            <TableCell colSpan={3} className="text-xs text-slate-400 italic">
+                              Sem movimentação de estoque registrada
+                            </TableCell>
+                          ) : (
+                            <>
+                              <TableCell className="text-xs text-slate-600">
+                                {p.estoque_local || '-'}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium text-slate-700">
+                                {p.estoque_quantidade}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium pr-6">
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                                    p.estoque_disponivel > 0
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-red-100 text-red-600',
+                                  )}
+                                >
+                                  {p.estoque_disponivel}
+                                </span>
+                              </TableCell>
+                            </>
+                          )}
+                        </TableRow>
+                      )
+                    })
                   )}
                 </TableBody>
               </Table>

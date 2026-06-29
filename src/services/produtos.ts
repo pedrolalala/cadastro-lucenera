@@ -262,3 +262,155 @@ export async function getProdutoEstoqueDetalhado(produtoId: string) {
   if (error) throw error
   return data
 }
+
+export interface ProdutoEstoqueRow {
+  id: string
+  nome: string
+  sku: string | null
+  codigo_produto: number | null
+  referencia: string | null
+  categoria: string | null
+  preco_venda: number | null
+  valor_venda: number | null
+  marca_nome: string | null
+  estoque_local: string | null
+  estoque_quantidade: number | null
+  estoque_reservada: number | null
+  estoque_disponivel: number | null
+  has_estoque: boolean
+}
+
+export async function getProdutosEstoqueFiltradoBatched(
+  params: {
+    searchTerm?: string
+    marcaId?: string
+    categoriaId?: string
+  },
+  batchSize = 500,
+  onProgress?: (loaded: number, total: number | null) => void,
+): Promise<ProdutoEstoqueRow[]> {
+  const applyCommonFilters = (query: any) => {
+    let q = query.eq('ativo', true)
+    if (params.marcaId) q = q.eq('marca_id', params.marcaId)
+    if (params.categoriaId) q = q.eq('categoria_id', params.categoriaId)
+    return q
+  }
+
+  const selectFields = `
+    id, nome, sku, codigo_produto, referencia, categoria, descricao_tecnica,
+    preco_venda, valor_venda, ativo,
+    marca:marcas(nome),
+    categoria_rel:categorias_produto(nome),
+    estoque:estoque_itens(id, local, quantidade, quantidade_reservada)
+  `
+
+  const fetchBatched = async (extraFilterFn?: (q: any) => any): Promise<any[]> => {
+    let countQuery = supabase.from('produtos').select('*', { count: 'exact', head: true })
+    countQuery = applyCommonFilters(countQuery)
+    if (extraFilterFn) countQuery = extraFilterFn(countQuery)
+    const { count } = await countQuery
+
+    let allProducts: any[] = []
+    let offset = 0
+    let hasMore = true
+
+    while (hasMore) {
+      let query = supabase
+        .from('produtos')
+        .select(selectFields)
+        .order('nome')
+        .range(offset, offset + batchSize - 1)
+      query = applyCommonFilters(query)
+      if (extraFilterFn) query = extraFilterFn(query)
+
+      const { data, error } = await query
+      if (error) throw error
+      if (!data || data.length === 0) {
+        hasMore = false
+      } else {
+        allProducts = [...allProducts, ...data]
+        onProgress?.(allProducts.length, count ?? null)
+        if (data.length < batchSize) {
+          hasMore = false
+        } else {
+          offset += batchSize
+        }
+      }
+    }
+
+    return allProducts
+  }
+
+  let products: any[] = []
+
+  if (params.searchTerm) {
+    const term = params.searchTerm.trim().replace(/[,()]/g, '')
+    const numeric = term.replace(/[^0-9]/g, '')
+
+    const exactFn = (q: any) => {
+      if (numeric) {
+        return q.or(`sku.eq.${term},referencia.eq.${term},codigo_produto.eq.${numeric}`)
+      }
+      return q.or(`sku.eq.${term},referencia.eq.${term}`)
+    }
+    products = await fetchBatched(exactFn)
+
+    if (products.length === 0) {
+      const partialFn = (q: any) => {
+        return q.or(`nome.ilike.%${term}%,descricao_tecnica.ilike.%${term}%`)
+      }
+      products = await fetchBatched(partialFn)
+    }
+  } else {
+    products = await fetchBatched()
+  }
+
+  const rows: ProdutoEstoqueRow[] = []
+  for (const p of products) {
+    const marcaNome = p.marca?.nome || null
+    const categoriaNome = p.categoria_rel?.nome || p.categoria || null
+    const estoqueItems = Array.isArray(p.estoque) ? p.estoque : []
+
+    if (estoqueItems.length === 0) {
+      rows.push({
+        id: p.id,
+        nome: p.nome,
+        sku: p.sku,
+        codigo_produto: p.codigo_produto,
+        referencia: p.referencia,
+        categoria: categoriaNome,
+        preco_venda: p.preco_venda,
+        valor_venda: p.valor_venda,
+        marca_nome: marcaNome,
+        estoque_local: null,
+        estoque_quantidade: null,
+        estoque_reservada: null,
+        estoque_disponivel: null,
+        has_estoque: false,
+      })
+    } else {
+      for (const ei of estoqueItems) {
+        const quantidade = Number(ei.quantidade) || 0
+        const reservada = Number(ei.quantidade_reservada) || 0
+        rows.push({
+          id: p.id,
+          nome: p.nome,
+          sku: p.sku,
+          codigo_produto: p.codigo_produto,
+          referencia: p.referencia,
+          categoria: categoriaNome,
+          preco_venda: p.preco_venda,
+          valor_venda: p.valor_venda,
+          marca_nome: marcaNome,
+          estoque_local: ei.local,
+          estoque_quantidade: quantidade,
+          estoque_reservada: reservada,
+          estoque_disponivel: quantidade - reservada,
+          has_estoque: true,
+        })
+      }
+    }
+  }
+
+  return rows
+}
