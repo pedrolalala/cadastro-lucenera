@@ -140,6 +140,7 @@ export default function Pecas() {
       preco_venda: row.preco_venda,
       ativo: true,
       estoque_total: row.estoque_total,
+      estoque_reservado: row.estoque_reservado,
       estoque_disponivel: row.estoque_disponivel,
     }
   }, [produtos, selectedPecaId])
@@ -322,7 +323,7 @@ export default function Pecas() {
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
                           {p.marca_nome || (
-                            <span className="text-slate-400 italic">Marca não definida</span>
+                            <span className="text-slate-400 italic">Não informada</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -335,6 +336,17 @@ export default function Pecas() {
                         </TableCell>
                         <TableCell className="text-right font-medium text-slate-700">
                           {formatCurrency(p.valor_venda || p.preco_venda)}
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <span
+                            className={cn(
+                              'font-semibold text-sm',
+                              p.estoque_disponivel > 0 ? 'text-emerald-600' : 'text-slate-400',
+                            )}
+                          >
+                            {p.estoque_disponivel}
+                          </span>
+                          <span className="text-xs text-slate-400 ml-1">({p.estoque_total})</span>
                         </TableCell>
                       </TableRow>
                     ))

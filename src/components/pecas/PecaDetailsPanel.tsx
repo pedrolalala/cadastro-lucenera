@@ -8,6 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table'
 import { Box, Edit, Trash2, Tag, Layers, DollarSign, Hash, FileText } from 'lucide-react'
 import { getEstoqueItens } from '@/services/produtos'
@@ -32,6 +33,7 @@ interface PecaData {
   preco_venda: number | null
   ativo: boolean
   estoque_total: number
+  estoque_reservado?: number
   estoque_disponivel: number
 }
 
@@ -145,7 +147,7 @@ export function PecaDetailsPanel({
             value={peca.sku || peca.referencia || '-'}
             mono
           />
-          <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não definida'} />
+          <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não informada'} />
           <DetailRow icon={Layers} label="Categoria" value={peca.categoria || 'Sem categoria'} />
           <DetailRow
             icon={DollarSign}
@@ -181,19 +183,15 @@ export function PecaDetailsPanel({
               <TableHeader className="bg-slate-100/80">
                 <TableRow>
                   <StockHead>Local</StockHead>
-                  <StockHead right>Total</StockHead>
-                  <StockHead right>Reserv.</StockHead>
-                  <StockHead right>Dispon.</StockHead>
+                  <StockHead right>Qtd. Estoque</StockHead>
+                  <StockHead right>Disponível</StockHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Array.from({ length: 6 }).map((_, i) => (
+                {Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell className="py-2.5 px-2">
                       <Skeleton className="h-4 w-20 bg-slate-200" />
-                    </TableCell>
-                    <TableCell className="py-2.5 px-2">
-                      <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
                     </TableCell>
                     <TableCell className="py-2.5 px-2">
                       <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
@@ -209,71 +207,78 @@ export function PecaDetailsPanel({
         ) : !hasStockRecords ? (
           <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
             <p className="text-sm text-slate-500 text-center">
-              Sem movimentação de estoque registrada
+              Produto sem movimentação de estoque (Saldo Zero)
             </p>
           </div>
         ) : (
           <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-100/80">
-                  <TableRow>
-                    <StockHead>Local</StockHead>
-                    <StockHead right>Total</StockHead>
-                    <StockHead right>Reserv.</StockHead>
-                    <StockHead right>Dispon.</StockHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {estoquePorSetor.map((i) => {
-                    const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
-                    return (
-                      <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
-                        <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[120px]">
-                          {i.local}
-                        </TableCell>
-                        <TableCell className="py-2 px-2 text-xs text-right">
-                          <span
-                            className={cn(
-                              'font-medium px-1.5 py-0.5 rounded-full',
-                              i.quantidade > 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
-                            )}
-                          >
-                            {i.quantidade}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-2 px-2 text-xs text-right">
-                          <span
-                            className={cn(
-                              'font-medium px-1.5 py-0.5 rounded-full',
-                              (i.quantidade_reservada || 0) > 0
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'text-slate-400',
-                            )}
-                          >
-                            {i.quantidade_reservada || 0}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-2 px-2 text-xs text-right">
-                          <span
-                            className={cn(
-                              'font-medium px-1.5 py-0.5 rounded-full',
-                              disponivelLocal > 0
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : disponivelLocal < 0
-                                  ? 'bg-destructive/10 text-destructive'
-                                  : 'text-slate-500',
-                            )}
-                          >
-                            {disponivelLocal}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <StockHead>Local</StockHead>
+                  <StockHead right>Qtd. Estoque</StockHead>
+                  <StockHead right>Disponível</StockHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {estoquePorSetor.map((i) => {
+                  const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
+                  return (
+                    <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
+                      <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[120px]">
+                        {i.local}
+                      </TableCell>
+                      <TableCell className="py-2 px-2 text-xs text-right">
+                        <span
+                          className={cn(
+                            'font-medium px-1.5 py-0.5 rounded-full',
+                            i.quantidade > 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
+                          )}
+                        >
+                          {i.quantidade}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-2 px-2 text-xs text-right">
+                        <span
+                          className={cn(
+                            'font-medium px-1.5 py-0.5 rounded-full',
+                            disponivelLocal > 0
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : disponivelLocal < 0
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'text-slate-500',
+                          )}
+                        >
+                          {disponivelLocal}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+              <TableFooter className="bg-slate-100/80 border-t border-slate-200">
+                <TableRow className="h-10">
+                  <TableCell className="py-2 px-2 text-xs font-bold text-slate-700">
+                    Resumo Final
+                  </TableCell>
+                  <TableCell className="py-2 px-2 text-xs text-right font-semibold text-slate-600">
+                    {totalGeral}
+                  </TableCell>
+                  <TableCell className="py-2 px-2 text-right">
+                    <span
+                      className={cn(
+                        'text-xs font-bold px-2 py-1 rounded-full',
+                        totalDisponivel > 0
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-300 text-slate-600',
+                      )}
+                    >
+                      {totalDisponivel}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         )}
       </div>
