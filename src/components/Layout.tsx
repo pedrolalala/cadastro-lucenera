@@ -14,7 +14,7 @@ export default function Layout() {
       <div className="flex flex-1 flex-col w-full pb-16 md:pb-0 relative">
         <AppHeader />
         <main className="flex-1 p-4 md:p-8 overflow-auto animate-fade-in-up">
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full max-w-[1800px] mx-auto">
             <Outlet />
           </div>
         </main>
