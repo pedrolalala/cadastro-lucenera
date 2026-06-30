@@ -22,14 +22,20 @@ Deno.serve(async (req: Request) => {
     if (error) throw error
 
     if (!boletos || boletos.length === 0) {
-      return new Response(JSON.stringify({ message: 'Nenhum boleto pendente para remessa' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ message: 'Nenhum boleto pendente para remessa' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
     }
 
     // Update to 'Remessa Enviada'
     const ids = boletos.map((b) => b.id)
-    await supabaseClient.from('boletos').update({ status: 'Remessa Enviada' }).in('id', ids)
+    await supabaseClient
+      .from('boletos')
+      .update({ status: 'Remessa Enviada' })
+      .in('id', ids)
 
     // Send mock notification
     await supabaseClient.functions.invoke('sync-teams', {
@@ -39,9 +45,12 @@ Deno.serve(async (req: Request) => {
       },
     })
 
-    return new Response(JSON.stringify({ success: true, processed: ids.length }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ success: true, processed: ids.length }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    )
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
