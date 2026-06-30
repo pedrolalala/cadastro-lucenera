@@ -29,7 +29,7 @@ const ProtectedRoutes = () => {
     <>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/projetos" replace />} />
+          <Route path="/" element={<Navigate to="/pecas" replace />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/projetos" element={<Projetos />} />
           <Route path="/pecas" element={<Pecas />} />

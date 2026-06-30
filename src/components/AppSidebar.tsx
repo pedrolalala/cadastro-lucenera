@@ -1,15 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Users, Briefcase, Wrench, Hexagon } from 'lucide-react'
+import { Wrench, Hexagon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function AppSidebar() {
   const location = useLocation()
 
-  const navItems = [
-    { name: 'Projetos', path: '/projetos', icon: Briefcase },
-    { name: 'Clientes', path: '/clientes', icon: Users },
-    { name: 'Peças', path: '/pecas', icon: Wrench },
-  ]
+  const navItems = [{ name: 'Peças', path: '/pecas', icon: Wrench }]
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground min-h-screen shrink-0">
