@@ -10,10 +10,49 @@ import {
   TableRow,
   TableFooter,
 } from '@/components/ui/table'
-import { Box, Edit, Trash2, Tag, Layers, DollarSign, Hash, FileText } from 'lucide-react'
-import { getEstoqueItens } from '@/services/produtos'
+import {
+  Box,
+  Edit,
+  Trash2,
+  Tag,
+  Layers,
+  DollarSign,
+  Hash,
+  FileText,
+  Users,
+  Truck,
+  Building2,
+} from 'lucide-react'
+import {
+  getEstoqueItens,
+  getReservasProduto,
+  getPedidosCompraEmTransito,
+  getFornecedorSugeridoProduto,
+  type ReservaProdutoRow,
+  type PedidoCompraEmTransitoRow,
+  type FornecedorSugeridoProdutoRow,
+} from '@/services/produtos'
 import { buildEstoquePorSetor } from '@/lib/estoque-sectors'
 import { cn } from '@/lib/utils'
+
+// SPEC-049: mesmo dicionário de rótulos de status de pedido de compra usado em
+// compras-lucenera-3o23t98ee/src/services/necessidade-compra.ts
+// (STATUS_PEDIDO_COMPRA_LABEL). Duplicado aqui porque não há import
+// cross-repo entre os dois sistemas — manter os mesmos textos nos dois.
+const STATUS_PEDIDO_COMPRA_LABEL: Record<string, string> = {
+  rascunho: 'Pendente',
+  aprovado: 'Aprovado',
+  enviado: 'Pedido Emitido',
+  parcialmente_recebido: 'Em Trânsito',
+  recebido: 'Recebido',
+  cancelado: 'Cancelado',
+}
+
+const formatStatusPedidoCompra = (status: string | null | undefined) =>
+  status ? (STATUS_PEDIDO_COMPRA_LABEL[status] ?? status) : '-'
+
+const formatDate = (v: string | null | undefined) =>
+  v ? new Date(v).toLocaleDateString('pt-BR') : '-'
 
 const formatCurrency = (v: number | null | undefined) =>
   v == null
@@ -48,6 +87,14 @@ export function PecaDetailsPanel({
 }) {
   const [estoqueData, setEstoqueData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [reservasData, setReservasData] = useState<ReservaProdutoRow[]>([])
+  const [loadingReservas, setLoadingReservas] = useState(false)
+  const [pedidosData, setPedidosData] = useState<PedidoCompraEmTransitoRow[]>([])
+  const [loadingPedidos, setLoadingPedidos] = useState(false)
+  const [fornecedorSugerido, setFornecedorSugerido] = useState<FornecedorSugeridoProdutoRow | null>(
+    null,
+  )
+  const [loadingFornecedorSugerido, setLoadingFornecedorSugerido] = useState(false)
 
   useEffect(() => {
     if (!peca) {
@@ -71,6 +118,77 @@ export function PecaDetailsPanel({
     }
   }, [peca])
 
+  // SPEC-049: reserva por cliente/projeto/equipe e pedido de compra em
+  // trânsito, somente leitura, carregados em paralelo à seção de estoque.
+  useEffect(() => {
+    if (!peca) {
+      setReservasData([])
+      return
+    }
+    let cancelled = false
+    setLoadingReservas(true)
+    ;(async () => {
+      try {
+        const rows = await getReservasProduto(peca.id)
+        if (!cancelled) setReservasData(rows || [])
+      } catch {
+        if (!cancelled) setReservasData([])
+      } finally {
+        if (!cancelled) setLoadingReservas(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [peca])
+
+  useEffect(() => {
+    if (!peca) {
+      setPedidosData([])
+      return
+    }
+    let cancelled = false
+    setLoadingPedidos(true)
+    ;(async () => {
+      try {
+        const rows = await getPedidosCompraEmTransito(peca.id)
+        if (!cancelled) setPedidosData(rows || [])
+      } catch {
+        if (!cancelled) setPedidosData([])
+      } finally {
+        if (!cancelled) setLoadingPedidos(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [peca])
+
+  // SPEC-049 (seção adicional "Fornecedor Sugerido"): sugestão de compra por
+  // produto (vw_necessidade_compra), independente da seção "Pedido de Compra
+  // em Trânsito" — uma reflete pedidos já feitos, a outra uma sugestão.
+  useEffect(() => {
+    if (!peca) {
+      setFornecedorSugerido(null)
+      return
+    }
+    let cancelled = false
+    setLoadingFornecedorSugerido(true)
+    ;(async () => {
+      try {
+        const row = await getFornecedorSugeridoProduto(peca.id)
+        if (!cancelled) setFornecedorSugerido(row)
+      } catch {
+        if (!cancelled) setFornecedorSugerido(null)
+      } finally {
+        if (!cancelled) setLoadingFornecedorSugerido(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [peca])
+
   const hasStockRecords = estoqueData.length > 0
   const estoquePorSetor = useMemo(
     () => (hasStockRecords ? buildEstoquePorSetor(estoqueData) : []),
@@ -79,6 +197,10 @@ export function PecaDetailsPanel({
   const totalGeral = estoquePorSetor.reduce((s, i) => s + i.quantidade, 0)
   const totalReservado = estoquePorSetor.reduce((s, i) => s + (i.quantidade_reservada || 0), 0)
   const totalDisponivel = totalGeral - totalReservado
+
+  const hasReservas = reservasData.length > 0
+  const hasPedidos = pedidosData.length > 0
+  const hasFornecedorSugerido = (fornecedorSugerido?.pendente ?? 0) > 0
 
   if (!peca) {
     return (
@@ -278,6 +400,207 @@ export function PecaDetailsPanel({
                   </TableCell>
                 </TableRow>
               </TableFooter>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* SPEC-049: Reservado por Cliente/Projeto */}
+      <div className="px-4 sm:px-5 pb-5 flex-1 flex flex-col">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h4 className="text-sm font-semibold flex items-center text-slate-700">
+            <Users className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
+            Reservado por Cliente/Projeto
+          </h4>
+        </div>
+        {loadingReservas ? (
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <StockHead>Projeto</StockHead>
+                  <StockHead>Cliente</StockHead>
+                  <StockHead>Equipe</StockHead>
+                  <StockHead right>Qtd. Vendida</StockHead>
+                  <StockHead right>Reservado</StockHead>
+                  <StockHead right>Aguardando Compra</StockHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((__, j) => (
+                      <TableCell key={j} className="py-2.5 px-2">
+                        <Skeleton className="h-4 w-full bg-slate-200" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : !hasReservas ? (
+          <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
+            <p className="text-sm text-slate-500 text-center">
+              Nenhuma reserva ativa para esta peça.
+            </p>
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <StockHead>Projeto</StockHead>
+                  <StockHead>Cliente</StockHead>
+                  <StockHead>Equipe</StockHead>
+                  <StockHead right>Qtd. Vendida</StockHead>
+                  <StockHead right>Reservado</StockHead>
+                  <StockHead right>Aguardando Compra</StockHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reservasData.map((r) => (
+                  <TableRow key={r.projeto_item_id} className="h-10 hover:bg-slate-100/50">
+                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[110px]">
+                      {r.projeto_codigo || '-'}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[130px]">
+                      {r.cliente_nome || '-'}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[110px]">
+                      {r.equipe_nome || '-'}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-right">
+                      <span className="font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        {r.q_venda}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-right">
+                      <span
+                        className={cn(
+                          'font-medium px-1.5 py-0.5 rounded-full',
+                          r.q_reserva > 0 ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400',
+                        )}
+                      >
+                        {r.q_reserva}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-right">
+                      <span
+                        className={cn(
+                          'font-medium px-1.5 py-0.5 rounded-full',
+                          r.q_entrega_futura > 0 ? 'bg-amber-100 text-amber-700' : 'text-slate-400',
+                        )}
+                      >
+                        {r.q_entrega_futura}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* SPEC-049 (seção adicional): Fornecedor Sugerido — independente da
+          seção "Pedido de Compra em Trânsito" abaixo; só aparece se houver
+          quantidade pendente sugerida para compra (vw_necessidade_compra). */}
+      {loadingFornecedorSugerido ? (
+        <div className="px-4 sm:px-5 pb-3">
+          <Skeleton className="h-4 w-2/3 bg-slate-200" />
+        </div>
+      ) : (
+        hasFornecedorSugerido && (
+          <div className="px-4 sm:px-5 pb-3">
+            <div className="flex items-center gap-2 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <Building2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>
+                <span className="font-medium">Fornecedor Sugerido:</span>{' '}
+                {fornecedorSugerido?.fornecedor_nome || '-'} ·{' '}
+                <span className="font-medium">Pendente:</span> {fornecedorSugerido?.pendente}
+              </span>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* SPEC-049: Pedido de Compra em Trânsito */}
+      <div className="px-4 sm:px-5 pb-5 flex-1 flex flex-col">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h4 className="text-sm font-semibold flex items-center text-slate-700">
+            <Truck className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
+            Pedido de Compra em Trânsito
+          </h4>
+        </div>
+        {loadingPedidos ? (
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <StockHead>Nº Pedido</StockHead>
+                  <StockHead>Status</StockHead>
+                  <StockHead>Empresa</StockHead>
+                  <StockHead>Previsão de Chegada</StockHead>
+                  <StockHead right>Qtd. Pendente</StockHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 5 }).map((__, j) => (
+                      <TableCell key={j} className="py-2.5 px-2">
+                        <Skeleton className="h-4 w-full bg-slate-200" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : !hasPedidos ? (
+          <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
+            <p className="text-sm text-slate-500 text-center">
+              Nenhum pedido de compra em trânsito para esta peça.
+            </p>
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
+            <Table>
+              <TableHeader className="bg-slate-100/80">
+                <TableRow>
+                  <StockHead>Nº Pedido</StockHead>
+                  <StockHead>Status</StockHead>
+                  <StockHead>Empresa</StockHead>
+                  <StockHead>Previsão de Chegada</StockHead>
+                  <StockHead right>Qtd. Pendente</StockHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pedidosData.map((p) => (
+                  <TableRow key={p.pedido_id} className="h-10 hover:bg-slate-100/50">
+                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[110px]">
+                      {p.numero || '-'}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs">
+                      <span className="font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 whitespace-nowrap">
+                        {formatStatusPedidoCompra(p.status)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[130px]">
+                      {p.empresa_nome || '-'}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 whitespace-nowrap">
+                      {formatDate(p.data_prevista_entrega)}
+                    </TableCell>
+                    <TableCell className="py-2 px-2 text-xs text-right">
+                      <span className="font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        {p.qtd_pendente}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
             </Table>
           </div>
         )}
