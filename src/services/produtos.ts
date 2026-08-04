@@ -46,16 +46,6 @@ export async function checkCodigoExists(codigo: number, excludeId?: string | nul
   return data.length > 0
 }
 
-export async function checkCodigoExists(codigo: number, excludeId?: string | null) {
-  let query = supabase.from('produtos').select('id').eq('codigo_produto', codigo)
-  if (excludeId) {
-    query = query.neq('id', excludeId)
-  }
-  const { data, error } = await query
-  if (error) throw error
-  return data.length > 0
-}
-
 export async function createProduto(produto: ProdutoInsert) {
   const { data, error } = await supabase
     .from('produtos')
