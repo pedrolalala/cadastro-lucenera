@@ -46,6 +46,16 @@ export async function checkCodigoExists(codigo: number, excludeId?: string | nul
   return data.length > 0
 }
 
+export async function checkCodigoExists(codigo: number, excludeId?: string | null) {
+  let query = supabase.from('produtos').select('id').eq('codigo_produto', codigo)
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data.length > 0
+}
+
 export async function createProduto(produto: ProdutoInsert) {
   const { data, error } = await supabase
     .from('produtos')
@@ -98,6 +108,60 @@ export async function getFornecedores() {
     .select('id, nome, razao_social')
     .eq('tipo', 'fornecedor')
     .order('nome')
+  if (error) throw error
+  return data
+}
+
+// SPEC-053: criação rápida de marca a partir do botão "+" em PecaForm, sem
+// sair do formulário de produto. `fornecedor_id` e `prazo_entrega_dias`
+// existem em public.marcas (migrations 20260716_049 SPEC-030 e 20260715_041),
+// mas ainda não aparecem em src/lib/supabase/types.ts (gerado antes dessas
+// migrations) — por isso o cast `as any`, mesmo padrão já usado neste
+// arquivo para views/RPCs fora dos tipos gerados (ver getReservasProduto).
+export interface MarcaQuickCreatePayload {
+  nome: string
+  fornecedor_id?: string | null
+  prazo_entrega_dias?: number | null
+}
+
+export async function createMarca(payload: MarcaQuickCreatePayload) {
+  const { data, error } = await (supabase.from('marcas') as any)
+    .insert([
+      {
+        nome: payload.nome.trim(),
+        fornecedor_id: payload.fornecedor_id || null,
+        prazo_entrega_dias: payload.prazo_entrega_dias ?? null,
+        ativo: true,
+      },
+    ])
+    .select('id, nome')
+    .single()
+  if (error) throw error
+  return data as { id: string; nome: string }
+}
+
+// SPEC-053: criação rápida de fornecedor (contatos.tipo = 'fornecedor') a
+// partir do botão "+" em PecaForm, sem sair do formulário de produto.
+export interface FornecedorQuickCreatePayload {
+  nome: string
+  cnpj?: string | null
+  razao_social?: string | null
+}
+
+export async function createFornecedor(payload: FornecedorQuickCreatePayload) {
+  const { data, error } = await supabase
+    .from('contatos')
+    .insert([
+      {
+        tipo: 'fornecedor',
+        nome: payload.nome.trim(),
+        cnpj: payload.cnpj?.trim() || null,
+        razao_social: payload.razao_social?.trim() || null,
+        ativo: true,
+      },
+    ])
+    .select('id, nome, razao_social')
+    .single()
   if (error) throw error
   return data
 }
