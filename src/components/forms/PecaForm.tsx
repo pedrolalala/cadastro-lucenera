@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -21,6 +22,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -33,19 +42,19 @@ import {
   getProduto,
   createProduto,
   updateProduto,
-  checkCodigoExists,
   checkSkuExists,
   getFornecedores,
   getMarcas,
   getCategoriasProduto,
   getEstoqueItens,
   getNextSku,
+  createMarca,
+  createFornecedor,
 } from '@/services/produtos'
 
 const SKU_PREFIX = 'teste'
 
 const schema = z.object({
-  codigo_produto: z.coerce.number().min(1, 'Obrigatório'),
   sku: z.string().optional(),
   nome: z.string().min(2, 'Obrigatório'),
   marca_id: z.string().min(1, 'Obrigatório'),
@@ -97,50 +106,269 @@ const InputField = ({ control, name, label, type = 'text', readOnly = false }: a
   />
 )
 
-const SelectField = ({ control, name, label, options }: any) => (
+const SelectField = ({ control, name, label, options, extra }: any) => (
   <FormField
     control={control}
     name={name}
     render={({ field }) => (
       <FormItem className="space-y-1">
         <FormLabel className="text-xs">{label}</FormLabel>
-        <Select
-          onValueChange={field.onChange}
-          value={field.value ? String(field.value) : undefined}
-        >
-          <FormControl>
-            <SelectTrigger className="h-8 text-sm">
-              <SelectValue placeholder="Selecione..." />
-            </SelectTrigger>
-          </FormControl>
-          <SelectContent>
-            {options.map((o: any) => (
-              <SelectItem key={o.id || o.value || o.nome} value={String(o.id || o.value || o.nome)}>
-                {o.nome || o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1">
+          <div className="flex-1 min-w-0">
+            <Select
+              onValueChange={field.onChange}
+              value={field.value ? String(field.value) : undefined}
+            >
+              <FormControl>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {options.map((o: any) => (
+                  <SelectItem
+                    key={o.id || o.value || o.nome}
+                    value={String(o.id || o.value || o.nome)}
+                  >
+                    {o.nome || o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {extra}
+        </div>
         <FormMessage className="text-[10px]" />
       </FormItem>
     )}
   />
 )
 
+type FornecedorOption = { id: string; nome: string; razao_social: string | null }
+type MarcaOption = { id: string; nome: string }
+
+// SPEC-053: modal simples de criação rápida de marca, aberto pelo botão "+"
+// ao lado do SelectField de Marca em PecaForm. Não sai do formulário de
+// produto. fornecedor_id/prazo_entrega_dias são opcionais.
+function MarcaQuickCreateDialog({
+  open,
+  onOpenChange,
+  fornecedores,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  fornecedores: FornecedorOption[]
+  onCreated: (marca: MarcaOption) => void
+}) {
+  const { toast } = useToast()
+  const [nome, setNome] = useState('')
+  const [fornecedorId, setFornecedorId] = useState('none')
+  const [prazoEntregaDias, setPrazoEntregaDias] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setNome('')
+      setFornecedorId('none')
+      setPrazoEntregaDias('')
+    }
+  }, [open])
+
+  const handleSave = useCallback(async () => {
+    if (!nome.trim()) {
+      toast({ title: 'Nome é obrigatório', variant: 'destructive' })
+      return
+    }
+    setSaving(true)
+    try {
+      const marca = await createMarca({
+        nome,
+        fornecedor_id: fornecedorId === 'none' ? null : fornecedorId,
+        prazo_entrega_dias: prazoEntregaDias ? Number(prazoEntregaDias) : null,
+      })
+      toast({ title: 'Marca criada', description: marca.nome })
+      onCreated(marca)
+      onOpenChange(false)
+    } catch (e: any) {
+      toast({
+        title: 'Erro',
+        description: e?.message || 'Falha ao criar marca',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }, [nome, fornecedorId, prazoEntregaDias, onCreated, onOpenChange, toast])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nova Marca</DialogTitle>
+          <DialogDescription>Cadastro rápido, sem sair do formulário de produto.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Nome *</label>
+            <Input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="h-8 text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Fornecedor</label>
+            <Select value={fornecedorId} onValueChange={setFornecedorId}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {fornecedores.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.razao_social || f.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Prazo de entrega (dias)</label>
+            <Input
+              type="number"
+              min="0"
+              value={prazoEntregaDias}
+              onChange={(e) => setPrazoEntregaDias(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar Marca'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// SPEC-053: modal simples de criação rápida de fornecedor (contatos.tipo =
+// 'fornecedor'), aberto pelo botão "+" ao lado do SelectField de Fornecedor.
+function FornecedorQuickCreateDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreated: (fornecedor: FornecedorOption) => void
+}) {
+  const { toast } = useToast()
+  const [nome, setNome] = useState('')
+  const [cnpj, setCnpj] = useState('')
+  const [razaoSocial, setRazaoSocial] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setNome('')
+      setCnpj('')
+      setRazaoSocial('')
+    }
+  }, [open])
+
+  const handleSave = useCallback(async () => {
+    if (!nome.trim()) {
+      toast({ title: 'Nome é obrigatório', variant: 'destructive' })
+      return
+    }
+    setSaving(true)
+    try {
+      const fornecedor = await createFornecedor({
+        nome,
+        cnpj: cnpj || null,
+        razao_social: razaoSocial || null,
+      })
+      toast({ title: 'Fornecedor criado', description: fornecedor.nome })
+      onCreated(fornecedor as FornecedorOption)
+      onOpenChange(false)
+    } catch (e: any) {
+      toast({
+        title: 'Erro',
+        description: e?.message || 'Falha ao criar fornecedor',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }, [nome, cnpj, razaoSocial, onCreated, onOpenChange, toast])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Novo Fornecedor</DialogTitle>
+          <DialogDescription>Cadastro rápido, sem sair do formulário de produto.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Nome *</label>
+            <Input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="h-8 text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Razão Social</label>
+            <Input
+              value={razaoSocial}
+              onChange={(e) => setRazaoSocial(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium">CNPJ</label>
+            <Input value={cnpj} onChange={(e) => setCnpj(e.target.value)} className="h-8 text-sm" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar Fornecedor'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSuccess: () => void }) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [fornecedores, setFornecedores] = useState<
-    { id: string; nome: string; razao_social: string | null }[]
-  >([])
-  const [marcas, setMarcas] = useState<{ id: string; nome: string }[]>([])
+  const [fornecedores, setFornecedores] = useState<FornecedorOption[]>([])
+  const [marcas, setMarcas] = useState<MarcaOption[]>([])
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([])
   const [estoqueItens, setEstoqueItens] = useState<any[]>([])
+  // SPEC-053: codigo_produto não é mais editável nem parte do form — é
+  // gerado pelo DEFAULT nextval(produtos_codigo_produto_seq) da coluna.
+  // Aqui só guardamos o valor para exibição (existente ao editar).
+  const [codigoProdutoAtual, setCodigoProdutoAtual] = useState<number | null>(null)
+  const [marcaModalOpen, setMarcaModalOpen] = useState(false)
+  const [fornecedorModalOpen, setFornecedorModalOpen] = useState(false)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      codigo_produto: 0,
       sku: '',
       nome: '',
       marca_id: '',
@@ -214,6 +442,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     if (pecaId) {
       Promise.all([getProduto(pecaId), getEstoqueItens(pecaId)]).then(([data, estq]) => {
         setEstoqueItens(estq || [])
+        setCodigoProdutoAtual((data as any).codigo_produto ?? null)
         form.reset({
           ...data,
           fornecedor_principal_id: data.fornecedor_principal_id || 'none',
@@ -229,6 +458,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
         } as FormData)
       })
     } else {
+      setCodigoProdutoAtual(null)
       getNextSku(SKU_PREFIX)
         .then((nextSku) => {
           if (!form.getValues('sku')) {
@@ -239,12 +469,29 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     }
   }, [pecaId, form])
 
+  const handleMarcaCreated = useCallback(
+    (marca: MarcaOption) => {
+      setMarcas((prev) => [...prev, marca].sort((a, b) => a.nome.localeCompare(b.nome)))
+      form.setValue('marca_id', marca.id, { shouldValidate: true, shouldDirty: true })
+    },
+    [form],
+  )
+
+  const handleFornecedorCreated = useCallback(
+    (fornecedor: FornecedorOption) => {
+      setFornecedores((prev) => [...prev, fornecedor].sort((a, b) => a.nome.localeCompare(b.nome)))
+      form.setValue('fornecedor_principal_id', fornecedor.id, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+    },
+    [form],
+  )
+
   const onSubmit = useCallback(
     async (v: FormData) => {
       setLoading(true)
       try {
-        if (await checkCodigoExists(v.codigo_produto, pecaId))
-          return form.setError('codigo_produto', { message: 'Em uso' })
         if (v.sku && (await checkSkuExists(v.sku, pecaId)))
           return form.setError('sku', { message: 'Em uso' })
         const payload = {
@@ -253,9 +500,16 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           fornecedor_principal_id:
             v.fornecedor_principal_id === 'none' ? null : v.fornecedor_principal_id,
         } as any
-        if (pecaId) await updateProduto(pecaId, payload)
-        else await createProduto(payload)
-        toast({ title: 'Sucesso', description: 'Peça salva!' })
+        if (pecaId) {
+          await updateProduto(pecaId, payload)
+          toast({ title: 'Sucesso', description: 'Peça salva!' })
+        } else {
+          const created = await createProduto(payload)
+          toast({
+            title: 'Sucesso',
+            description: `Peça salva! Código gerado: ${(created as any).codigo_produto}`,
+          })
+        }
         onSuccess()
       } catch (e) {
         toast({ title: 'Erro', description: 'Falha ao salvar', variant: 'destructive' })
@@ -270,19 +524,41 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0">
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2">
-            <h3 className="text-sm font-semibold border-b pb-1">Dados Básicos</h3>
+          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-amber-200 rounded-md p-3">
+            <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
+              Dados Básicos
+            </h3>
             <div className="grid grid-cols-2 gap-2">
-              <InputField
-                control={form.control}
-                name="codigo_produto"
-                label="Código *"
-                type="number"
-              />
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Código *</label>
+                <Input
+                  readOnly
+                  disabled
+                  className="h-8 text-sm bg-slate-100 text-slate-500"
+                  value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
+                />
+              </div>
               <InputField control={form.control} name="sku" label="Código Progressivo (SKU)" />
             </div>
             <InputField control={form.control} name="nome" label="Nome *" />
-            <SelectField control={form.control} name="marca_id" label="Marca *" options={marcas} />
+            <SelectField
+              control={form.control}
+              name="marca_id"
+              label="Marca *"
+              options={marcas}
+              extra={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setMarcaModalOpen(true)}
+                  title="Cadastrar nova marca"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              }
+            />
             <SelectField
               control={form.control}
               name="categoria_id"
@@ -294,6 +570,18 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
               name="fornecedor_principal_id"
               label="Fornecedor"
               options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
+              extra={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setFornecedorModalOpen(true)}
+                  title="Cadastrar novo fornecedor"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              }
             />
             <div className="grid grid-cols-2 gap-2">
               <InputField control={form.control} name="unidade" label="Unidade *" />
@@ -302,8 +590,10 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
           </div>
 
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2">
-            <h3 className="text-sm font-semibold border-b pb-1">Engenharia de Custos</h3>
+          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-sky-200 rounded-md p-3">
+            <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
+              Engenharia de Custos
+            </h3>
             <div className="grid grid-cols-2 gap-2">
               <InputField
                 control={form.control}
@@ -358,8 +648,10 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             </div>
           </div>
 
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2">
-            <h3 className="text-sm font-semibold border-b pb-1">Dados Fiscais</h3>
+          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-violet-200 rounded-md p-3">
+            <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
+              Dados Fiscais
+            </h3>
             <div className="grid grid-cols-2 gap-2">
               <InputField control={form.control} name="ncm" label="NCM" />
               <InputField control={form.control} name="tipo_fiscal" label="Tipo Fiscal" />
@@ -401,8 +693,10 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             />
           </div>
 
-          <div className="flex flex-col h-full min-h-[250px] overflow-hidden">
-            <h3 className="text-sm font-semibold border-b pb-1 mb-3">Estoque Integrado</h3>
+          <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-3">
+            <h3 className="text-sm font-semibold border-b-2 border-emerald-300 pb-1 mb-3">
+              Estoque Integrado
+            </h3>
             <div className="border rounded-md flex-1 overflow-auto bg-slate-50">
               <Table>
                 <TableHeader className="bg-slate-100 sticky top-0">
@@ -446,6 +740,18 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           </div>
         </div>
       </form>
+
+      <MarcaQuickCreateDialog
+        open={marcaModalOpen}
+        onOpenChange={setMarcaModalOpen}
+        fornecedores={fornecedores}
+        onCreated={handleMarcaCreated}
+      />
+      <FornecedorQuickCreateDialog
+        open={fornecedorModalOpen}
+        onOpenChange={setFornecedorModalOpen}
+        onCreated={handleFornecedorCreated}
+      />
     </Form>
   )
 }

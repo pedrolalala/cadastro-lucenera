@@ -102,6 +102,60 @@ export async function getFornecedores() {
   return data
 }
 
+// SPEC-053: criação rápida de marca a partir do botão "+" em PecaForm, sem
+// sair do formulário de produto. `fornecedor_id` e `prazo_entrega_dias`
+// existem em public.marcas (migrations 20260716_049 SPEC-030 e 20260715_041),
+// mas ainda não aparecem em src/lib/supabase/types.ts (gerado antes dessas
+// migrations) — por isso o cast `as any`, mesmo padrão já usado neste
+// arquivo para views/RPCs fora dos tipos gerados (ver getReservasProduto).
+export interface MarcaQuickCreatePayload {
+  nome: string
+  fornecedor_id?: string | null
+  prazo_entrega_dias?: number | null
+}
+
+export async function createMarca(payload: MarcaQuickCreatePayload) {
+  const { data, error } = await (supabase.from('marcas') as any)
+    .insert([
+      {
+        nome: payload.nome.trim(),
+        fornecedor_id: payload.fornecedor_id || null,
+        prazo_entrega_dias: payload.prazo_entrega_dias ?? null,
+        ativo: true,
+      },
+    ])
+    .select('id, nome')
+    .single()
+  if (error) throw error
+  return data as { id: string; nome: string }
+}
+
+// SPEC-053: criação rápida de fornecedor (contatos.tipo = 'fornecedor') a
+// partir do botão "+" em PecaForm, sem sair do formulário de produto.
+export interface FornecedorQuickCreatePayload {
+  nome: string
+  cnpj?: string | null
+  razao_social?: string | null
+}
+
+export async function createFornecedor(payload: FornecedorQuickCreatePayload) {
+  const { data, error } = await supabase
+    .from('contatos')
+    .insert([
+      {
+        tipo: 'fornecedor',
+        nome: payload.nome.trim(),
+        cnpj: payload.cnpj?.trim() || null,
+        razao_social: payload.razao_social?.trim() || null,
+        ativo: true,
+      },
+    ])
+    .select('id, nome, razao_social')
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function getEstoqueItens(produtoId: string) {
   const { data, error } = await supabase
     .from('estoque_itens')
@@ -109,6 +163,91 @@ export async function getEstoqueItens(produtoId: string) {
     .eq('produto_id', produtoId)
   if (error) throw error
   return data
+}
+
+// SPEC-049: "Reservado por Cliente/Projeto" no card lateral de peça.
+// Lê a view vw_cadastro_produto_reserva_detalhe (migration
+// 20260727_063_spec049_cadastro_reserva_detalhe), que reaproveita
+// vw_estoque_por_produto_projeto (SPEC-010) — uma linha por
+// (produto_id, projeto_item_id) com reserva ativa. A view ainda não está
+// nos tipos gerados de src/lib/supabase/types.ts (só existe a partir da
+// migration desta SPEC), por isso o cast `as any` no `.from(...)`, mesmo
+// padrão já usado neste arquivo para `get_next_sku`.
+export interface ReservaProdutoRow {
+  projeto_item_id: string
+  projeto_id: string | null
+  projeto_codigo: string | null
+  orcamento_id: string | null
+  orcamento_numero: string | null
+  produto_id: string
+  produto_codigo: string | null
+  cliente_id: string | null
+  cliente_nome: string | null
+  equipe_id: string | null
+  equipe_nome: string | null
+  q_venda: number
+  q_reserva: number
+  q_entrega_futura: number
+  status_operacional: string | null
+}
+
+export async function getReservasProduto(produtoId: string): Promise<ReservaProdutoRow[]> {
+  const { data, error } = await (supabase.from as any)('vw_cadastro_produto_reserva_detalhe')
+    .select('*')
+    .eq('produto_id', produtoId)
+  if (error) throw error
+  return (data || []) as ReservaProdutoRow[]
+}
+
+// SPEC-049: "Pedido de Compra em Trânsito" no card lateral de peça.
+// Lê vw_necessidade_compra_pedido_detalhe (SPEC-039, já em produção, já com
+// GRANT SELECT authenticated) — não cria view nova para esta parte. Compra
+// não tem dono fixo (RN-03 SPEC-012/022): é agregada por produto, não por
+// reserva/cliente específico.
+export interface PedidoCompraEmTransitoRow {
+  produto_id: string
+  pedido_id: string
+  numero: string | null
+  status: string
+  empresa_nome: string | null
+  data_prevista_entrega: string | null
+  qtd_pendente: number
+}
+
+export async function getPedidosCompraEmTransito(
+  produtoId: string,
+): Promise<PedidoCompraEmTransitoRow[]> {
+  const { data, error } = await (supabase.from as any)('vw_necessidade_compra_pedido_detalhe')
+    .select('*')
+    .eq('produto_id', produtoId)
+  if (error) throw error
+  return (data || []) as PedidoCompraEmTransitoRow[]
+}
+
+// SPEC-049 (seção adicional "Fornecedor Sugerido"): sugestão de compra por
+// produto, lendo vw_necessidade_compra (já em produção, já com GRANT SELECT
+// authenticated) — não é um pedido em trânsito, é COALESCE(produtos.fornecedor_
+// principal_id, marcas.fornecedor_id). Independente de getPedidosCompraEmTransito.
+export interface FornecedorSugeridoProdutoRow {
+  fornecedor_nome: string | null
+  pendente: number | null
+  qtd_pedidos_abertos: number | null
+  qtd_em_pedidos_abertos: number | null
+  proxima_data_prevista_entrega: string | null
+  status_mais_critico: string | null
+}
+
+export async function getFornecedorSugeridoProduto(
+  produtoId: string,
+): Promise<FornecedorSugeridoProdutoRow | null> {
+  const { data, error } = await (supabase.from as any)('vw_necessidade_compra')
+    .select(
+      'fornecedor_nome, pendente, qtd_pedidos_abertos, qtd_em_pedidos_abertos, proxima_data_prevista_entrega, status_mais_critico',
+    )
+    .eq('produto_id', produtoId)
+    .maybeSingle()
+  if (error) throw error
+  return data as FornecedorSugeridoProdutoRow | null
 }
 
 export async function getNextSku(prefix: string = 'teste') {
