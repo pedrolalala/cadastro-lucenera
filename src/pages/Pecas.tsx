@@ -241,7 +241,7 @@ export default function Pecas() {
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
                     <TableHead className="w-[16%] pl-4 sm:pl-6 text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      SKU / Referência
+                      Referência
                     </TableHead>
                     <TableHead className="text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Descrição
@@ -311,7 +311,7 @@ export default function Pecas() {
                       >
                         <TableCell className="pl-4 sm:pl-6 align-middle py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs font-semibold whitespace-nowrap">
-                            {p.sku || p.referencia || '-'}
+                            {p.referencia || p.sku || '-'}
                           </span>
                         </TableCell>
                         <TableCell className="align-middle py-2">
