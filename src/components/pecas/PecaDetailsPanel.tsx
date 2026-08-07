@@ -265,8 +265,8 @@ export function PecaDetailsPanel({
           <DetailRow icon={Hash} label="Código" value={String(codigoDisplay)} mono />
           <DetailRow
             icon={FileText}
-            label="SKU / Referência"
-            value={peca.sku || peca.referencia || '-'}
+            label="Referência"
+            value={peca.referencia || peca.sku || '-'}
             mono
           />
           <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não informada'} />
