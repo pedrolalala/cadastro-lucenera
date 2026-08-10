@@ -1,9 +1,9 @@
-import { Wrench } from 'lucide-react'
+import { Wrench, Home } from 'lucide-react'
 import logoUrl from '@/assets/lucenera-vertical-d5520.png'
 
 export function AppHeader() {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-4 md:px-8 shadow-sm">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-4 md:px-8 shadow-sm">
       <div className="flex items-center gap-4">
         <img src={logoUrl} alt="Lucenera" className="h-8 w-auto object-contain" />
         <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
@@ -13,6 +13,14 @@ export function AppHeader() {
           <span className="hidden sm:inline text-sm text-slate-400 ml-2">Gestão de Inventário</span>
         </div>
       </div>
+      <a
+        href="https://central-lucenera.goskip.app/"
+        title="Voltar para a Central Lucenera"
+        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary transition-colors"
+      >
+        <Home className="w-4 h-4" />
+        <span className="hidden sm:inline">Central</span>
+      </a>
     </header>
   )
 }
