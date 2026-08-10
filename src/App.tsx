@@ -11,7 +11,7 @@ import Login from './pages/Login'
 import { PecaModal } from './components/modals/PecaModal'
 
 const ProtectedRoutes = () => {
-  const { user, loading } = useAuth()
+  const { user, hasAccess, loading } = useAuth()
 
   if (loading) {
     return (
@@ -22,6 +22,20 @@ const ProtectedRoutes = () => {
   }
 
   if (!user) return <Login />
+
+  if (hasAccess === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="max-w-sm w-full text-center space-y-3">
+          <h1 className="text-lg font-semibold">Acesso negado</h1>
+          <p className="text-sm text-muted-foreground">
+            Sua conta não tem permissão para acessar o Cadastro. Fale com um administrador se
+            acredita que isso é um engano.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

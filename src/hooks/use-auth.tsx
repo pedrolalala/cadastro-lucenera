@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client'
 interface AuthContextType {
   user: User | null
   session: Session | null
+  hasAccess: boolean | null
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
@@ -22,7 +23,27 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // SPEC-069: este app só checava estar logado, sem nenhuma permissão
+  // granular do Hub. Consulta a mesma RPC que o Hub usa (hub_pode_executar,
+  // SPEC-006) para o sistema inteiro ('cadastro', sem módulo/ação
+  // específicos).
+  useEffect(() => {
+    if (!user?.id) {
+      setHasAccess(null)
+      return
+    }
+    supabase
+      .rpc('hub_pode_executar', {
+        p_usuario_id: user.id,
+        p_system_slug: 'cadastro',
+        p_modulo_chave: null,
+        p_acao: null,
+      })
+      .then(({ data }) => setHasAccess(Boolean(data)))
+  }, [user?.id])
 
   useEffect(() => {
     const {
@@ -58,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ user, session, hasAccess, signUp, signIn, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   )
