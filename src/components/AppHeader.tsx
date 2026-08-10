@@ -14,7 +14,7 @@ export function AppHeader() {
         </div>
       </div>
       <a
-        href="https://central-lucenera.goskip.app/"
+        href="https://central-lucenera-dashboard-1c9ba.goskip.app/dashboard"
         title="Voltar para a Central Lucenera"
         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary transition-colors"
       >
