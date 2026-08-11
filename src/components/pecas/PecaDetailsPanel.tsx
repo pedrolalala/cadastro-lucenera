@@ -263,12 +263,7 @@ export function PecaDetailsPanel({
       <div className="p-4 sm:p-5 space-y-3">
         <div className="grid grid-cols-1 gap-2">
           <DetailRow icon={Hash} label="Código" value={String(codigoDisplay)} mono />
-          <DetailRow
-            icon={FileText}
-            label="Referência"
-            value={peca.referencia || peca.sku || '-'}
-            mono
-          />
+          <DetailRow icon={FileText} label="Referência" value={peca.referencia || '-'} mono />
           <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não informada'} />
           <DetailRow icon={Layers} label="Categoria" value={peca.categoria || 'Sem categoria'} />
           <DetailRow
