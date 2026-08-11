@@ -524,170 +524,177 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0">
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-amber-200 rounded-md p-3">
-            <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
-              Dados Básicos
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Código *</label>
-                <Input
-                  readOnly
-                  disabled
-                  className="h-8 text-sm bg-slate-100 text-slate-500"
-                  value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
-                />
+          <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto pr-2 pb-2">
+            <div className="space-y-3 border-2 border-amber-200 rounded-md p-3">
+              <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
+                Dados Básicos
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Código *</label>
+                  <Input
+                    readOnly
+                    disabled
+                    className="h-8 text-sm bg-slate-100 text-slate-500"
+                    value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
+                  />
+                </div>
+                <InputField control={form.control} name="referencia" label="Referência" />
               </div>
-              <InputField control={form.control} name="referencia" label="Referência" />
+              <InputField control={form.control} name="nome" label="Nome *" />
+              <SelectField
+                control={form.control}
+                name="marca_id"
+                label="Marca *"
+                options={marcas}
+                extra={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setMarcaModalOpen(true)}
+                    title="Cadastrar nova marca"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <SelectField
+                control={form.control}
+                name="categoria_id"
+                label="Categoria *"
+                options={categorias}
+              />
+              <SelectField
+                control={form.control}
+                name="fornecedor_principal_id"
+                label="Fornecedor"
+                options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
+                extra={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setFornecedorModalOpen(true)}
+                    title="Cadastrar novo fornecedor"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <InputField control={form.control} name="unidade" label="Unidade *" />
+              <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
             </div>
-            <InputField control={form.control} name="nome" label="Nome *" />
-            <SelectField
-              control={form.control}
-              name="marca_id"
-              label="Marca *"
-              options={marcas}
-              extra={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => setMarcaModalOpen(true)}
-                  title="Cadastrar nova marca"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              }
-            />
-            <SelectField
-              control={form.control}
-              name="categoria_id"
-              label="Categoria *"
-              options={categorias}
-            />
-            <SelectField
-              control={form.control}
-              name="fornecedor_principal_id"
-              label="Fornecedor"
-              options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
-              extra={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => setFornecedorModalOpen(true)}
-                  title="Cadastrar novo fornecedor"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              }
-            />
-            <InputField control={form.control} name="unidade" label="Unidade *" />
-            <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
-          </div>
 
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-sky-200 rounded-md p-3">
-            <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
-              Engenharia de Custos
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField
-                control={form.control}
-                name="preco_custo"
-                label="Preço Custo (R$)"
-                type="number"
-              />
-              <InputField control={form.control} name="porc_frete" label="% Frete" type="number" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField control={form.control} name="porc_st" label="% ST" type="number" />
-              <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField
-                control={form.control}
-                name="margem_lucro"
-                label="% Lucro"
-                type="number"
-              />
-              <InputField
-                control={form.control}
-                name="porc_despesas"
-                label="% Despesas"
-                type="number"
-              />
-            </div>
-            <div className="bg-slate-50 p-3 rounded-md border space-y-2 mt-2">
+            <div className="space-y-3 border-2 border-sky-200 rounded-md p-3">
+              <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
+                Engenharia de Custos
+              </h3>
               <div className="grid grid-cols-2 gap-2">
                 <InputField
                   control={form.control}
-                  name="porc_bdi"
-                  label="Valor BDI Calc. (R$)"
+                  name="preco_custo"
+                  label="Preço Custo (R$)"
                   type="number"
-                  readOnly
                 />
                 <InputField
                   control={form.control}
-                  name="custo_total"
-                  label="Custo Total Calc. (R$)"
+                  name="porc_frete"
+                  label="% Frete"
+                  type="number"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField control={form.control} name="porc_st" label="% ST" type="number" />
+                <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField
+                  control={form.control}
+                  name="margem_lucro"
+                  label="% Lucro"
+                  type="number"
+                />
+                <InputField
+                  control={form.control}
+                  name="porc_despesas"
+                  label="% Despesas"
+                  type="number"
+                />
+              </div>
+              <div className="bg-slate-50 p-3 rounded-md border space-y-2 mt-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <InputField
+                    control={form.control}
+                    name="porc_bdi"
+                    label="Valor BDI Calc. (R$)"
+                    type="number"
+                    readOnly
+                  />
+                  <InputField
+                    control={form.control}
+                    name="custo_total"
+                    label="Custo Total Calc. (R$)"
+                    type="number"
+                    readOnly
+                  />
+                </div>
+                <InputField
+                  control={form.control}
+                  name="preco_venda"
+                  label="Preço Venda Final (R$)"
                   type="number"
                   readOnly
                 />
               </div>
-              <InputField
-                control={form.control}
-                name="preco_venda"
-                label="Preço Venda Final (R$)"
-                type="number"
-                readOnly
-              />
             </div>
-          </div>
 
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-violet-200 rounded-md p-3">
-            <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
-              Dados Fiscais
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField control={form.control} name="ncm" label="NCM" />
-              <InputField control={form.control} name="tipo_fiscal" label="Tipo Fiscal" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField control={form.control} name="cst" label="CST" />
-              <InputField control={form.control} name="cest" label="CEST" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField
+            <div className="space-y-3 border-2 border-violet-200 rounded-md p-3">
+              <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
+                Dados Fiscais
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField control={form.control} name="ncm" label="NCM" />
+                <InputField control={form.control} name="tipo_fiscal" label="Tipo Fiscal" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField control={form.control} name="cst" label="CST" />
+                <InputField control={form.control} name="cest" label="CEST" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField
+                  control={form.control}
+                  name="icms_entrada"
+                  label="% ICMS Entr."
+                  type="number"
+                />
+              </div>
+              <InputField control={form.control} name="mascara_produto" label="Máscara / Família" />
+              <SelectField
                 control={form.control}
-                name="icms_entrada"
-                label="% ICMS Entr."
-                type="number"
+                name="status_comercial"
+                label="Status Comercial"
+                options={[
+                  { id: 'Normal', nome: 'Normal' },
+                  { id: 'Lançamento', nome: 'Lançamento' },
+                  { id: 'Fora de Linha', nome: 'Fora de Linha' },
+                ]}
+              />
+              <FormField
+                control={form.control}
+                name="ativo"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between border p-2 rounded-md h-12">
+                    <FormLabel className="text-xs mt-1">Ativo no Catálogo</FormLabel>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
             </div>
-            <InputField control={form.control} name="mascara_produto" label="Máscara / Família" />
-            <SelectField
-              control={form.control}
-              name="status_comercial"
-              label="Status Comercial"
-              options={[
-                { id: 'Normal', nome: 'Normal' },
-                { id: 'Lançamento', nome: 'Lançamento' },
-                { id: 'Fora de Linha', nome: 'Fora de Linha' },
-              ]}
-            />
-            <FormField
-              control={form.control}
-              name="ativo"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between border p-2 rounded-md h-12">
-                  <FormLabel className="text-xs mt-1">Ativo no Catálogo</FormLabel>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
           </div>
 
           <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-3">
