@@ -542,49 +542,53 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
               <InputField control={form.control} name="referencia" label="Referência" />
             </div>
             <InputField control={form.control} name="nome" label="Nome *" />
-            <SelectField
-              control={form.control}
-              name="marca_id"
-              label="Marca *"
-              options={marcas}
-              extra={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => setMarcaModalOpen(true)}
-                  title="Cadastrar nova marca"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              }
-            />
-            <SelectField
-              control={form.control}
-              name="categoria_id"
-              label="Categoria *"
-              options={categorias}
-            />
-            <SelectField
-              control={form.control}
-              name="fornecedor_principal_id"
-              label="Fornecedor"
-              options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
-              extra={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => setFornecedorModalOpen(true)}
-                  title="Cadastrar novo fornecedor"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              }
-            />
-            <InputField control={form.control} name="unidade" label="Unidade *" />
+            <div className="grid grid-cols-2 gap-2">
+              <SelectField
+                control={form.control}
+                name="marca_id"
+                label="Marca *"
+                options={marcas}
+                extra={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setMarcaModalOpen(true)}
+                    title="Cadastrar nova marca"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <SelectField
+                control={form.control}
+                name="categoria_id"
+                label="Categoria *"
+                options={categorias}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <SelectField
+                control={form.control}
+                name="fornecedor_principal_id"
+                label="Fornecedor"
+                options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
+                extra={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setFornecedorModalOpen(true)}
+                    title="Cadastrar novo fornecedor"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <InputField control={form.control} name="unidade" label="Unidade *" />
+            </div>
             <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
           </div>
 
@@ -665,30 +669,32 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 label="% ICMS Entr."
                 type="number"
               />
+              <InputField control={form.control} name="mascara_produto" label="Máscara / Família" />
             </div>
-            <InputField control={form.control} name="mascara_produto" label="Máscara / Família" />
-            <SelectField
-              control={form.control}
-              name="status_comercial"
-              label="Status Comercial"
-              options={[
-                { id: 'Normal', nome: 'Normal' },
-                { id: 'Lançamento', nome: 'Lançamento' },
-                { id: 'Fora de Linha', nome: 'Fora de Linha' },
-              ]}
-            />
-            <FormField
-              control={form.control}
-              name="ativo"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between border p-2 rounded-md h-12">
-                  <FormLabel className="text-xs mt-1">Ativo no Catálogo</FormLabel>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-2 items-end">
+              <SelectField
+                control={form.control}
+                name="status_comercial"
+                label="Status Comercial"
+                options={[
+                  { id: 'Normal', nome: 'Normal' },
+                  { id: 'Lançamento', nome: 'Lançamento' },
+                  { id: 'Fora de Linha', nome: 'Fora de Linha' },
+                ]}
+              />
+              <FormField
+                control={form.control}
+                name="ativo"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between border p-2 rounded-md h-8">
+                    <FormLabel className="text-xs">Ativo</FormLabel>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
           </div>
 
