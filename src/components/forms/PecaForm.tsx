@@ -524,7 +524,8 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0">
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-amber-200 rounded-md p-3">
+          <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto pr-2 pb-2">
+          <div className="space-y-3 border-2 border-amber-200 rounded-md p-3">
             <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
               Dados Básicos
             </h3>
@@ -587,7 +588,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
           </div>
 
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-sky-200 rounded-md p-3">
+          <div className="space-y-3 border-2 border-sky-200 rounded-md p-3">
             <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
               Engenharia de Custos
             </h3>
@@ -645,7 +646,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             </div>
           </div>
 
-          <div className="space-y-3 overflow-y-auto pr-2 pb-2 border-2 border-violet-200 rounded-md p-3">
+          <div className="space-y-3 border-2 border-violet-200 rounded-md p-3">
             <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
               Dados Fiscais
             </h3>
@@ -688,6 +689,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 </FormItem>
               )}
             />
+          </div>
           </div>
 
           <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-3">

@@ -302,6 +302,7 @@ export default function Pecas() {
                       <TableRow
                         key={`${p.id}-${idx}`}
                         onClick={() => setSelectedPecaId(p.id)}
+                        onDoubleClick={() => setActiveModal('peca', p.id)}
                         className={cn(
                           'cursor-pointer transition-colors h-14 border-b border-slate-50',
                           selectedPecaId === p.id
