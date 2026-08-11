@@ -320,7 +320,7 @@ export default function Pecas() {
                         </TableCell>
                         <TableCell className="pl-4 sm:pl-6 md:pl-0 align-middle py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs font-semibold whitespace-nowrap">
-                            {p.referencia || '-'}
+                            {p.sku || '-'}
                           </span>
                         </TableCell>
                         <TableCell className="align-middle py-2">
