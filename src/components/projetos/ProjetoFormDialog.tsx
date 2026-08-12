@@ -42,7 +42,7 @@ const schema = z.object({
   data_entrada: z.string().min(10, 'Data inválida'),
   cidade: z.string().optional().nullable(),
   estado: z.string().optional().nullable(),
-  tipo_area: z.enum(['Residential', 'Corporativo', 'Exposição Comercial', 'Paisagismo']),
+  tipo_area: z.enum(['Residencial', 'Corporativo', 'Exposição Comercial', 'Paisagismo']),
 })
 
 type FormData = z.infer<typeof schema>
@@ -106,7 +106,7 @@ export function ProjetoFormDialog({
           : new Date().toISOString().split('T')[0],
         cidade: projeto.cidade || '',
         estado: projeto.estado || '',
-        tipo_area: (projeto.area_do_projeto as any)?.tipo || 'Residential',
+        tipo_area: (projeto.area_do_projeto as any)?.tipo || 'Residencial',
       }
     }
     return {
@@ -120,7 +120,7 @@ export function ProjetoFormDialog({
       data_entrada: new Date().toISOString().split('T')[0],
       cidade: '',
       estado: '',
-      tipo_area: 'Residential' as const,
+      tipo_area: 'Residencial' as const,
     }
   }, [projeto, open])
 
@@ -416,7 +416,7 @@ export function ProjetoFormDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Residential">Residencial</SelectItem>
+                        <SelectItem value="Residencial">Residencial</SelectItem>
                         <SelectItem value="Corporativo">Corporativo</SelectItem>
                         <SelectItem value="Exposição Comercial">Exposição Comercial</SelectItem>
                         <SelectItem value="Paisagismo">Paisagismo</SelectItem>
