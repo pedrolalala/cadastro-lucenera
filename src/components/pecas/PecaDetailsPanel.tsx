@@ -13,7 +13,6 @@ import {
 import {
   Box,
   Edit,
-  Trash2,
   Tag,
   Layers,
   DollarSign,
@@ -79,11 +78,9 @@ interface PecaData {
 export function PecaDetailsPanel({
   peca,
   onEdit,
-  onDelete,
 }: {
   peca: PecaData | null
   onEdit: () => void
-  onDelete: () => void
 }) {
   const [estoqueData, setEstoqueData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -250,6 +247,10 @@ export function PecaDetailsPanel({
               </span>
             </div>
           </div>
+          {/* SPEC-115: "Excluir" saiu do painel rápido — um clique acidental
+              aqui apagava o cadastro direto. Fica só dentro da edição
+              completa (PecaForm.tsx) agora. "Editar" continua aqui, já
+              aceito pelo usuário — ele já leva pro cadastro completo. */}
           <div className="flex flex-col gap-2 shrink-0">
             <Button
               size="sm"
@@ -258,15 +259,6 @@ export function PecaDetailsPanel({
             >
               <Edit className="h-3 w-3 mr-1.5" />
               Editar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 w-full"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3 w-3 mr-1.5" />
-              Excluir
             </Button>
           </div>
         </div>

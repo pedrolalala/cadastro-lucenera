@@ -2,10 +2,20 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Form,
   FormControl,
@@ -42,6 +52,7 @@ import {
   getProduto,
   createProduto,
   updateProduto,
+  deleteProduto,
   checkSkuExists,
   getFornecedores,
   getMarcas,
@@ -365,6 +376,29 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   const [codigoProdutoAtual, setCodigoProdutoAtual] = useState<number | null>(null)
   const [marcaModalOpen, setMarcaModalOpen] = useState(false)
   const [fornecedorModalOpen, setFornecedorModalOpen] = useState(false)
+  // SPEC-115: excluir peça saiu do painel rápido da listagem (clique
+  // acidental apagava direto) — fica só aqui dentro da edição completa.
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!pecaId) return
+    setDeleting(true)
+    try {
+      await deleteProduto(pecaId)
+      toast({ title: 'Sucesso', description: 'Peça removida com sucesso!' })
+      onSuccess()
+    } catch {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao remover a peça.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
+      setDeleteDialogOpen(false)
+    }
+  }
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -734,17 +768,57 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 </TableBody>
               </Table>
             </div>
-            <div className="pt-4 flex justify-end gap-2 mt-auto">
-              <Button type="button" variant="outline" onClick={onSuccess}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-700">
-                {loading ? 'Salvando...' : 'Salvar Peça'}
-              </Button>
+            <div className="pt-4 flex justify-between items-center gap-2 mt-auto">
+              {pecaId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Excluir Peça
+                </Button>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={onSuccess}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-700">
+                  {loading ? 'Salvando...' : 'Salvar Peça'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </form>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta peça?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O cadastro da peça será removido
+              permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDelete()
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? 'Excluindo...' : 'Excluir Peça'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <MarcaQuickCreateDialog
         open={marcaModalOpen}

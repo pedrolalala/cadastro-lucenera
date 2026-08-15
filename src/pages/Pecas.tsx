@@ -9,21 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Search, Box, Plus, X } from 'lucide-react'
 import useDataStore from '@/stores/use-data-store'
 import {
   getProdutosEstoqueFiltradoBatched,
-  deleteProduto,
   getMarcas,
   getCategoriasProduto,
 } from '@/services/produtos'
@@ -59,8 +48,6 @@ export default function Pecas() {
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([])
 
   const [selectedPecaId, setSelectedPecaId] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [visibleCount, setVisibleCount] = useState(VISIBLE_BATCH)
 
   useEffect(() => {
@@ -107,22 +94,6 @@ export default function Pecas() {
   useEffect(() => {
     setVisibleCount(VISIBLE_BATCH)
   }, [debouncedSearch, marcaId, categoriaId])
-
-  const handleDelete = async () => {
-    if (!deleteId) return
-    setIsDeleting(true)
-    try {
-      await deleteProduto(deleteId)
-      toast({ title: 'Sucesso', description: 'Peça removida com sucesso!' })
-      setProdutos((prev) => prev.filter((p) => p.id !== deleteId))
-      if (selectedPecaId === deleteId) setSelectedPecaId(null)
-    } catch {
-      toast({ title: 'Erro', description: 'Falha ao remover a peça.', variant: 'destructive' })
-    } finally {
-      setIsDeleting(false)
-      setDeleteId(null)
-    }
-  }
 
   const selectedPeca = useMemo(() => {
     const row = produtos.find((p) => p.id === selectedPecaId)
@@ -240,10 +211,7 @@ export default function Pecas() {
               <Table className="w-full table-fixed">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
-                    <TableHead className="w-[9%] pl-4 sm:pl-6 hidden md:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Código
-                    </TableHead>
-                    <TableHead className="w-[14%] pl-4 sm:pl-6 md:pl-0 text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[16%] pl-4 sm:pl-6 text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Referência
                     </TableHead>
                     <TableHead className="text-slate-600 font-semibold text-xs uppercase tracking-wide">
@@ -266,7 +234,7 @@ export default function Pecas() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-32 text-center">
+                      <TableCell colSpan={6} className="h-32 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                           <span className="text-xs text-slate-500">
@@ -313,14 +281,9 @@ export default function Pecas() {
                             : 'hover:bg-slate-50/80',
                         )}
                       >
-                        <TableCell className="pl-4 sm:pl-6 hidden md:table-cell align-middle py-2">
-                          <span className="text-sm text-slate-500 font-mono">
-                            {p.codigo_produto ?? '-'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="pl-4 sm:pl-6 md:pl-0 align-middle py-2">
+                        <TableCell className="pl-4 sm:pl-6 align-middle py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs font-semibold whitespace-nowrap">
-                            {p.sku || '-'}
+                            {p.referencia || p.sku || '-'}
                           </span>
                         </TableCell>
                         <TableCell className="align-middle py-2">
@@ -389,38 +352,14 @@ export default function Pecas() {
         </div>
 
         <div className="w-full xl:w-80 shrink-0 flex flex-col xl:overflow-hidden xl:h-full">
+          {/* SPEC-115: onDelete removido — excluir peça agora só é possível
+              dentro da edição completa (PecaForm.tsx via PecaModal). */}
           <PecaDetailsPanel
             peca={selectedPeca}
             onEdit={() => setActiveModal('peca', selectedPeca?.id)}
-            onDelete={() => selectedPeca && setDeleteId(selectedPeca.id)}
           />
         </div>
       </div>
-
-      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A peça será removida permanentemente do banco de
-              dados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleDelete()
-              }}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {isDeleting ? 'Excluindo...' : 'Excluir Peça'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
