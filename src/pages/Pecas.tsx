@@ -9,21 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Search, Box, Plus, X } from 'lucide-react'
 import useDataStore from '@/stores/use-data-store'
 import {
   getProdutosEstoqueFiltradoBatched,
-  deleteProduto,
   getMarcas,
   getCategoriasProduto,
 } from '@/services/produtos'
@@ -59,8 +48,6 @@ export default function Pecas() {
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([])
 
   const [selectedPecaId, setSelectedPecaId] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [visibleCount, setVisibleCount] = useState(VISIBLE_BATCH)
 
   useEffect(() => {
@@ -107,22 +94,6 @@ export default function Pecas() {
   useEffect(() => {
     setVisibleCount(VISIBLE_BATCH)
   }, [debouncedSearch, marcaId, categoriaId])
-
-  const handleDelete = async () => {
-    if (!deleteId) return
-    setIsDeleting(true)
-    try {
-      await deleteProduto(deleteId)
-      toast({ title: 'Sucesso', description: 'Peça removida com sucesso!' })
-      setProdutos((prev) => prev.filter((p) => p.id !== deleteId))
-      if (selectedPecaId === deleteId) setSelectedPecaId(null)
-    } catch {
-      toast({ title: 'Erro', description: 'Falha ao remover a peça.', variant: 'destructive' })
-    } finally {
-      setIsDeleting(false)
-      setDeleteId(null)
-    }
-  }
 
   const selectedPeca = useMemo(() => {
     const row = produtos.find((p) => p.id === selectedPecaId)
@@ -381,38 +352,14 @@ export default function Pecas() {
         </div>
 
         <div className="w-full xl:w-80 shrink-0 flex flex-col xl:overflow-hidden xl:h-full">
+          {/* SPEC-115: onDelete removido — excluir peça agora só é possível
+              dentro da edição completa (PecaForm.tsx via PecaModal). */}
           <PecaDetailsPanel
             peca={selectedPeca}
             onEdit={() => setActiveModal('peca', selectedPeca?.id)}
-            onDelete={() => selectedPeca && setDeleteId(selectedPeca.id)}
           />
         </div>
       </div>
-
-      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A peça será removida permanentemente do banco de
-              dados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleDelete()
-              }}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {isDeleting ? 'Excluindo...' : 'Excluir Peça'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
