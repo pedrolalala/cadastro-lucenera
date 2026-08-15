@@ -195,7 +195,19 @@ export function PecaDetailsPanel({
     [estoqueData, hasStockRecords],
   )
   const totalGeral = estoquePorSetor.reduce((s, i) => s + i.quantidade, 0)
-  const totalReservado = estoquePorSetor.reduce((s, i) => s + (i.quantidade_reservada || 0), 0)
+  // Comprometido total (reserva + entrega futura) por local — usado só na
+  // tabela "Estoque por Local" abaixo, que é uma distribuição física por
+  // depósito (estoque_itens não distingue setor de reserva por local).
+  const totalComprometido = estoquePorSetor.reduce((s, i) => s + (i.quantidade_reservada || 0), 0)
+  const totalDisponivelPorLocal = totalGeral - totalComprometido
+  // SPEC-101: os badges do cabeçalho ("Reservado"/"Disponível") são a métrica
+  // agregada de negócio, não por local — "Reservado" tem que ser só o que
+  // está no setor Reserva, não o comprometido inteiro (reserva + entrega
+  // futura). estoque_itens.quantidade_reservada mistura os dois por desenho
+  // (é usada por outras RPCs com esse significado) — a métrica certa vem de
+  // vw_cadastro_produto_reserva_detalhe (mesma fonte da tabela "Reservado por
+  // Cliente/Projeto" abaixo), somando só q_reserva por projeto_item_id.
+  const totalReservado = reservasData.reduce((s, r) => s + (r.q_reserva || 0), 0)
   const totalDisponivel = totalGeral - totalReservado
 
   const hasReservas = reservasData.length > 0
@@ -263,7 +275,12 @@ export function PecaDetailsPanel({
       <div className="p-4 sm:p-5 space-y-3">
         <div className="grid grid-cols-1 gap-2">
           <DetailRow icon={Hash} label="Código" value={String(codigoDisplay)} mono />
-          <DetailRow icon={FileText} label="Referência" value={peca.sku || '-'} mono />
+          <DetailRow
+            icon={FileText}
+            label="Referência"
+            value={peca.referencia || peca.sku || '-'}
+            mono
+          />
           <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não informada'} />
           <DetailRow icon={Layers} label="Categoria" value={peca.categoria || 'Sem categoria'} />
           <DetailRow
@@ -385,12 +402,12 @@ export function PecaDetailsPanel({
                     <span
                       className={cn(
                         'text-xs font-bold px-2 py-1 rounded-full',
-                        totalDisponivel > 0
+                        totalDisponivelPorLocal > 0
                           ? 'bg-emerald-500 text-white'
                           : 'bg-slate-300 text-slate-600',
                       )}
                     >
-                      {totalDisponivel}
+                      {totalDisponivelPorLocal}
                     </span>
                   </TableCell>
                 </TableRow>
