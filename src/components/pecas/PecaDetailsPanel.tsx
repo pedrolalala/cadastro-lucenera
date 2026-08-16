@@ -351,7 +351,7 @@ export function PecaDetailsPanel({
                   const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
                   return (
                     <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
-                      <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[120px]">
+                      <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[180px]">
                         {i.local}
                       </TableCell>
                       <TableCell className="py-2 px-2 text-xs text-right">
@@ -465,13 +465,13 @@ export function PecaDetailsPanel({
               <TableBody>
                 {reservasData.map((r) => (
                   <TableRow key={r.projeto_item_id} className="h-10 hover:bg-slate-100/50">
-                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[110px]">
+                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[160px]">
                       {r.projeto_codigo || '-'}
                     </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[130px]">
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[190px]">
                       {r.cliente_nome || '-'}
                     </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[110px]">
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[160px]">
                       {r.equipe_nome || '-'}
                     </TableCell>
                     <TableCell className="py-2 px-2 text-xs text-right">
@@ -583,7 +583,7 @@ export function PecaDetailsPanel({
               <TableBody>
                 {pedidosData.map((p) => (
                   <TableRow key={p.pedido_id} className="h-10 hover:bg-slate-100/50">
-                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[110px]">
+                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[160px]">
                       {p.numero || '-'}
                     </TableCell>
                     <TableCell className="py-2 px-2 text-xs">
@@ -591,7 +591,7 @@ export function PecaDetailsPanel({
                         {formatStatusPedidoCompra(p.status)}
                       </span>
                     </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[130px]">
+                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[190px]">
                       {p.empresa_nome || '-'}
                     </TableCell>
                     <TableCell className="py-2 px-2 text-xs text-slate-700 whitespace-nowrap">
