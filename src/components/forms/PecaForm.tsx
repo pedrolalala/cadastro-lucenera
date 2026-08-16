@@ -573,7 +573,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                   value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
                 />
               </div>
-              <InputField control={form.control} name="referencia" label="Referência" />
+              <InputField control={form.control} name="sku" label="Referência" />
             </div>
             <InputField control={form.control} name="nome" label="Nome *" />
             <div className="grid grid-cols-2 gap-2">
