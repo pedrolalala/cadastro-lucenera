@@ -211,22 +211,25 @@ export default function Pecas() {
               <Table className="w-full table-fixed">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
-                    <TableHead className="w-[16%] pl-4 sm:pl-6 text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[9%] pl-4 sm:pl-6 pr-2 hidden md:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                      Código
+                    </TableHead>
+                    <TableHead className="w-[15%] pl-4 sm:pl-6 md:pl-2 text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Referência
                     </TableHead>
                     <TableHead className="text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Descrição
                     </TableHead>
-                    <TableHead className="w-[13%] hidden xl:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[12%] hidden xl:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Marca
                     </TableHead>
-                    <TableHead className="w-[12%] text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[11%] text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Preço Venda
                     </TableHead>
-                    <TableHead className="w-[11%] hidden lg:table-cell text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[10%] hidden lg:table-cell text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Estoque Total
                     </TableHead>
-                    <TableHead className="w-[13%] pr-4 sm:pr-6 text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[12%] pr-4 sm:pr-6 text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Disponível
                     </TableHead>
                   </TableRow>
@@ -234,7 +237,7 @@ export default function Pecas() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center">
+                      <TableCell colSpan={7} className="h-32 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                           <span className="text-xs text-slate-500">
@@ -247,7 +250,7 @@ export default function Pecas() {
                     </TableRow>
                   ) : visibleItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-40 text-center">
+                      <TableCell colSpan={7} className="h-40 text-center">
                         <div className="flex flex-col items-center text-slate-400">
                           <Box className="w-10 h-10 mb-3 text-slate-300" />
                           <p className="text-slate-600 font-medium">Nenhum produto encontrado</p>
@@ -281,7 +284,12 @@ export default function Pecas() {
                             : 'hover:bg-slate-50/80',
                         )}
                       >
-                        <TableCell className="pl-4 sm:pl-6 align-middle py-2">
+                        <TableCell className="pl-4 sm:pl-6 pr-2 hidden md:table-cell align-middle py-2">
+                          <span className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                            {p.codigo_produto ?? p.codigo_legado ?? '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="pl-4 sm:pl-6 md:pl-2 align-middle py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs font-semibold whitespace-nowrap">
                             {p.referencia || p.sku || '-'}
                           </span>

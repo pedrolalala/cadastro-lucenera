@@ -557,9 +557,9 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0">
-          <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto pr-2 pb-2">
-          <div className="space-y-3 border-2 border-amber-200 rounded-md p-3">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full min-h-0">
+          <div className="lg:col-span-3 flex flex-col gap-3 overflow-y-auto pr-2 pb-2">
+          <div className="space-y-2 border-2 border-amber-200 rounded-md p-2.5">
             <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
               Dados Básicos
             </h3>
@@ -573,7 +573,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                   value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
                 />
               </div>
-              <InputField control={form.control} name="sku" label="Referência" />
+              <InputField control={form.control} name="referencia" label="Referência" />
             </div>
             <InputField control={form.control} name="nome" label="Nome *" />
             <div className="grid grid-cols-2 gap-2">
@@ -626,7 +626,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
           </div>
 
-          <div className="space-y-3 border-2 border-sky-200 rounded-md p-3">
+          <div className="space-y-2 border-2 border-sky-200 rounded-md p-2.5">
             <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
               Engenharia de Custos
             </h3>
@@ -657,7 +657,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 type="number"
               />
             </div>
-            <div className="bg-slate-50 p-3 rounded-md border space-y-2 mt-2">
+            <div className="bg-slate-50 p-2 rounded-md border space-y-1.5 mt-1.5">
               <div className="grid grid-cols-2 gap-2">
                 <InputField
                   control={form.control}
@@ -684,7 +684,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             </div>
           </div>
 
-          <div className="space-y-3 border-2 border-violet-200 rounded-md p-3">
+          <div className="space-y-2 border-2 border-violet-200 rounded-md p-2.5">
             <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
               Dados Fiscais
             </h3>
@@ -732,8 +732,8 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           </div>
           </div>
 
-          <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-3">
-            <h3 className="text-sm font-semibold border-b-2 border-emerald-300 pb-1 mb-3">
+          <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-2.5">
+            <h3 className="text-sm font-semibold border-b-2 border-emerald-300 pb-1 mb-2">
               Estoque Integrado
             </h3>
             <div className="border rounded-md flex-1 overflow-auto bg-slate-50">
