@@ -211,10 +211,10 @@ export default function Pecas() {
               <Table className="w-full table-fixed">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
-                    <TableHead className="w-[9%] pl-4 sm:pl-6 hidden md:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[9%] pl-4 sm:pl-6 pr-2 hidden md:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Código
                     </TableHead>
-                    <TableHead className="w-[15%] pl-4 sm:pl-6 md:pl-0 text-slate-600 font-semibold text-xs uppercase tracking-wide">
+                    <TableHead className="w-[15%] pl-4 sm:pl-6 md:pl-2 text-slate-600 font-semibold text-xs uppercase tracking-wide">
                       Referência
                     </TableHead>
                     <TableHead className="text-slate-600 font-semibold text-xs uppercase tracking-wide">
@@ -284,12 +284,12 @@ export default function Pecas() {
                             : 'hover:bg-slate-50/80',
                         )}
                       >
-                        <TableCell className="pl-4 sm:pl-6 hidden md:table-cell align-middle py-2">
+                        <TableCell className="pl-4 sm:pl-6 pr-2 hidden md:table-cell align-middle py-2">
                           <span className="font-mono text-xs text-slate-500 whitespace-nowrap">
                             {p.codigo_produto ?? p.codigo_legado ?? '-'}
                           </span>
                         </TableCell>
-                        <TableCell className="pl-4 sm:pl-6 md:pl-0 align-middle py-2">
+                        <TableCell className="pl-4 sm:pl-6 md:pl-2 align-middle py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs font-semibold whitespace-nowrap">
                             {p.referencia || p.sku || '-'}
                           </span>
