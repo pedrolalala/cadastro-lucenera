@@ -351,7 +351,7 @@ export default function Pecas() {
           </div>
         </div>
 
-        <div className="w-full xl:w-80 shrink-0 flex flex-col xl:overflow-hidden xl:h-full">
+        <div className="w-full xl:w-[440px] 2xl:w-[520px] shrink-0 flex flex-col xl:overflow-hidden xl:h-full">
           {/* SPEC-115: onDelete removido — excluir peça agora só é possível
               dentro da edição completa (PecaForm.tsx via PecaModal). */}
           <PecaDetailsPanel
