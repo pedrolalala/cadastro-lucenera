@@ -14,8 +14,8 @@ export function PecaModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className="max-w-[98vw] w-full max-h-[95vh] h-full flex flex-col p-4 sm:p-6 overflow-hidden">
-        <DialogHeader className="flex-shrink-0 mb-2">
+      <DialogContent className="max-w-[98vw] w-full max-h-[97vh] h-full flex flex-col p-3 sm:p-4 overflow-hidden">
+        <DialogHeader className="flex-shrink-0 mb-1.5">
           <DialogTitle className="text-xl font-bold">
             {editingId ? 'Editar Peça' : 'Nova Peça'}
           </DialogTitle>

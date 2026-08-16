@@ -100,14 +100,14 @@ const InputField = ({ control, name, label, type = 'text', readOnly = false }: a
     control={control}
     name={name}
     render={({ field }) => (
-      <FormItem className="space-y-1">
+      <FormItem className="space-y-0.5">
         <FormLabel className="text-xs">{label}</FormLabel>
         <FormControl>
           <Input
             type={type}
             readOnly={readOnly}
             step={type === 'number' ? '0.01' : undefined}
-            className="h-8 text-sm"
+            className="h-7 text-sm"
             {...field}
           />
         </FormControl>
@@ -122,7 +122,7 @@ const SelectField = ({ control, name, label, options, extra }: any) => (
     control={control}
     name={name}
     render={({ field }) => (
-      <FormItem className="space-y-1">
+      <FormItem className="space-y-0.5">
         <FormLabel className="text-xs">{label}</FormLabel>
         <div className="flex items-center gap-1">
           <div className="flex-1 min-w-0">
@@ -131,7 +131,7 @@ const SelectField = ({ control, name, label, options, extra }: any) => (
               value={field.value ? String(field.value) : undefined}
             >
               <FormControl>
-                <SelectTrigger className="h-8 text-sm">
+                <SelectTrigger className="h-7 text-sm">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
               </FormControl>
@@ -558,18 +558,18 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full min-h-0">
-          <div className="lg:col-span-3 flex flex-col gap-3 overflow-y-auto pr-2 pb-2">
-          <div className="space-y-2 border-2 border-amber-200 rounded-md p-2.5">
+          <div className="lg:col-span-3 flex flex-col gap-2 overflow-y-auto pr-2 pb-2">
+          <div className="space-y-1.5 border-2 border-amber-200 rounded-md p-2">
             <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
               Dados Básicos
             </h3>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <label className="text-xs font-medium text-muted-foreground">Código *</label>
                 <Input
                   readOnly
                   disabled
-                  className="h-8 text-sm bg-slate-100 text-slate-500"
+                  className="h-7 text-sm bg-slate-100 text-slate-500"
                   value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
                 />
               </div>
@@ -587,7 +587,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className="h-7 w-7 shrink-0"
                     onClick={() => setMarcaModalOpen(true)}
                     title="Cadastrar nova marca"
                   >
@@ -613,7 +613,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className="h-7 w-7 shrink-0"
                     onClick={() => setFornecedorModalOpen(true)}
                     title="Cadastrar novo fornecedor"
                   >
@@ -626,7 +626,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
           </div>
 
-          <div className="space-y-2 border-2 border-sky-200 rounded-md p-2.5">
+          <div className="space-y-1.5 border-2 border-sky-200 rounded-md p-2">
             <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
               Engenharia de Custos
             </h3>
@@ -657,7 +657,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 type="number"
               />
             </div>
-            <div className="bg-slate-50 p-2 rounded-md border space-y-1.5 mt-1.5">
+            <div className="bg-slate-50 p-1.5 rounded-md border space-y-1 mt-1">
               <div className="grid grid-cols-2 gap-2">
                 <InputField
                   control={form.control}
@@ -684,7 +684,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             </div>
           </div>
 
-          <div className="space-y-2 border-2 border-violet-200 rounded-md p-2.5">
+          <div className="space-y-1.5 border-2 border-violet-200 rounded-md p-2">
             <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
               Dados Fiscais
             </h3>
@@ -720,7 +720,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 control={form.control}
                 name="ativo"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between border p-2 rounded-md h-8">
+                  <FormItem className="flex items-center justify-between border p-1.5 rounded-md h-7">
                     <FormLabel className="text-xs">Ativo</FormLabel>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -732,8 +732,8 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           </div>
           </div>
 
-          <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-2.5">
-            <h3 className="text-sm font-semibold border-b-2 border-emerald-300 pb-1 mb-2">
+          <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-2">
+            <h3 className="text-sm font-semibold border-b-2 border-emerald-300 pb-1 mb-1.5">
               Estoque Integrado
             </h3>
             <div className="border rounded-md flex-1 overflow-auto bg-slate-50">
@@ -768,7 +768,7 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
                 </TableBody>
               </Table>
             </div>
-            <div className="pt-4 flex justify-between items-center gap-2 mt-auto">
+            <div className="pt-2 flex justify-between items-center gap-2 mt-auto">
               {pecaId ? (
                 <Button
                   type="button"
