@@ -8,7 +8,6 @@ import NotFound from './pages/NotFound'
 import { DataProvider } from './stores/use-data-store'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import Login from './pages/Login'
-import { PecaModal } from './components/modals/PecaModal'
 
 const ProtectedRoutes = () => {
   const { user, hasAccess, loading } = useAuth()
@@ -48,7 +47,6 @@ const ProtectedRoutes = () => {
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <PecaModal />
     </>
   )
 }
