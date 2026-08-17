@@ -482,23 +482,26 @@ export async function getProdutosEstoqueFiltradoBatched(
   let products: any[] = []
 
   if (params.searchTerm) {
-    const term = params.searchTerm.trim().replace(/[,()]/g, '')
-    const numeric = term.replace(/[^0-9]/g, '')
+    // SPEC-116 (piloto 1): busca universal via RPC buscar_produtos_fuzzy
+    // (SPEC-100, estendida) — um termo (ou vários, em qualquer ordem) casa
+    // contra nome/sku/referencia/codigo_produto/descricao_tecnica/marca/
+    // categoria, tolerando acento e erro de digitação. A RPC resolve QUAIS
+    // produtos casam; a busca em lote abaixo continua trazendo os campos de
+    // estoque (que a RPC não retorna) só para esses ids.
+    const { data: matches, error: matchError } = await (supabase.rpc as any)(
+      'buscar_produtos_fuzzy',
+      {
+        p_termo: params.searchTerm,
+        p_marca_id: params.marcaId || null,
+        p_categoria_id: params.categoriaId || null,
+        p_offset: 0,
+        p_limit: 2000,
+      },
+    )
+    if (matchError) throw matchError
+    const ids = (matches || []).map((m: any) => m.id)
 
-    const exactFn = (q: any) => {
-      if (numeric) {
-        return q.or(`sku.eq.${term},referencia.eq.${term},codigo_produto.eq.${numeric}`)
-      }
-      return q.or(`sku.eq.${term},referencia.eq.${term}`)
-    }
-    products = await fetchBatched(exactFn)
-
-    if (products.length === 0) {
-      const partialFn = (q: any) => {
-        return q.or(`nome.ilike.%${term}%,descricao_tecnica.ilike.%${term}%`)
-      }
-      products = await fetchBatched(partialFn)
-    }
+    products = ids.length === 0 ? [] : await fetchBatched((q: any) => q.in('id', ids))
   } else {
     products = await fetchBatched()
   }
