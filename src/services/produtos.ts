@@ -486,8 +486,8 @@ export async function getProdutosEstoqueFiltradoBatched(
     // (SPEC-100, estendida) — um termo (ou vários, em qualquer ordem) casa
     // contra nome/sku/referencia/codigo_produto/descricao_tecnica/marca/
     // categoria, tolerando acento e erro de digitação. A RPC resolve QUAIS
-    // produtos casam; a busca em lote abaixo continua trazendo os campos de
-    // estoque (que a RPC não retorna) só para esses ids.
+    // produtos casam; a busca abaixo continua trazendo os campos de estoque
+    // (que a RPC não retorna) só para esses ids.
     const { data: matches, error: matchError } = await (supabase.rpc as any)(
       'buscar_produtos_fuzzy',
       {
@@ -495,13 +495,28 @@ export async function getProdutosEstoqueFiltradoBatched(
         p_marca_id: params.marcaId || null,
         p_categoria_id: params.categoriaId || null,
         p_offset: 0,
-        p_limit: 2000,
+        p_limit: 500,
       },
     )
     if (matchError) throw matchError
     const ids = (matches || []).map((m: any) => m.id)
 
-    products = ids.length === 0 ? [] : await fetchBatched((q: any) => q.in('id', ids))
+    // Bug achado ao testar ao vivo (SPEC-116): termos genéricos ("spot",
+    // "interlight") casavam centenas/milhares de produtos, e mandar todos
+    // os ids de uma vez via `.in('id', ids)` gerava uma URL de ~40-70KB —
+    // estourava o limite de tamanho de URL do servidor e a busca falhava
+    // ("Falha ao carregar as peças"). Buscar em lotes pequenos de ids
+    // evita isso.
+    const ID_CHUNK_SIZE = 150
+    for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + ID_CHUNK_SIZE)
+      let query = supabase.from('produtos').select(selectFields).in('id', chunk)
+      query = applyCommonFilters(query)
+      const { data, error } = await query
+      if (error) throw error
+      products = products.concat(data || [])
+      onProgress?.(products.length, ids.length)
+    }
   } else {
     products = await fetchBatched()
   }
