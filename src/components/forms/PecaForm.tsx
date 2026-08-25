@@ -502,11 +502,32 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           porc_bdi: (data as any).porc_bdi || 0,
           porc_st: (data as any).porc_st || 0,
           valor_venda: (data as any).valor_venda || (data as any).preco_venda || 0,
+          // Bug achado em QA (2026-08-25): campos string opcionais no schema
+          // usam z.string().optional(), que só aceita undefined — quando a
+          // coluna vem null do banco, o zod rejeitava com "Invalid input" e
+          // travava o Salvar silenciosamente (sem mensagem visível até rolar
+          // até o campo). sku/referencia/descricao_tecnica/ncm/tipo_fiscal
+          // precisam do mesmo fallback que cst/cest/mascara_produto/
+          // status_comercial já tinham.
+          sku: (data as any).sku || '',
+          referencia: (data as any).referencia || '',
+          descricao_tecnica: (data as any).descricao_tecnica || '',
+          ncm: (data as any).ncm || '',
+          tipo_fiscal: (data as any).tipo_fiscal || '',
           cst: (data as any).cst || '',
           cest: (data as any).cest || '',
           mascara_produto: (data as any).mascara_produto || '',
           status_comercial: (data as any).status_comercial || 'Normal',
         } as FormData)
+        // Bug achado em QA (2026-08-25): form.reset() atualizava
+        // control._defaultValues.marca_id/categoria_id corretamente, mas os
+        // Controllers dos SelectField (marca_id/categoria_id) continuavam
+        // com _formValues vazio ("") — o dropdown ficava em branco e o
+        // Salvar bloqueava com "Obrigatório" mesmo a peça já tendo
+        // marca/categoria definidas. setValue() escreve direto em
+        // _formValues, contornando o problema.
+        form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
+        form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
       })
     } else {
       setCodigoProdutoAtual(null)
