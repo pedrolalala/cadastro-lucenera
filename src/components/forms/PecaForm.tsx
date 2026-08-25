@@ -524,10 +524,14 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
         // Controllers dos SelectField (marca_id/categoria_id) continuavam
         // com _formValues vazio ("") — o dropdown ficava em branco e o
         // Salvar bloqueava com "Obrigatório" mesmo a peça já tendo
-        // marca/categoria definidas. setValue() escreve direto em
-        // _formValues, contornando o problema.
-        form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
-        form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
+        // marca/categoria definidas. setValue() chamado no mesmo tick do
+        // reset() não bastava (reset com resolver zod reprocessa validação
+        // de forma assíncrona e sobrescrevia o setValue) — precisa rodar
+        // depois, daí o setTimeout 0.
+        setTimeout(() => {
+          form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
+          form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
+        }, 0)
       })
     } else {
       setCodigoProdutoAtual(null)
