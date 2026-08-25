@@ -58,12 +58,14 @@ import {
   getMarcas,
   getCategoriasProduto,
   getEstoqueItens,
-  getNextSku,
   createMarca,
   createFornecedor,
 } from '@/services/produtos'
 
-const SKU_PREFIX = 'teste'
+// Bug achado em QA (2026-08-25): SKU_PREFIX era 'teste' — toda peça nova
+// criada sem referência manual ganhava "teste01", "teste02" etc. como
+// referência permanente. Removido o auto-preenchimento (ver useEffect
+// abaixo); o campo Referência começa vazio em peça nova.
 
 const schema = z.object({
   sku: z.string().optional(),
@@ -121,37 +123,52 @@ const SelectField = ({ control, name, label, options, extra }: any) => (
   <FormField
     control={control}
     name={name}
-    render={({ field }) => (
-      <FormItem className="space-y-0.5">
-        <FormLabel className="text-xs">{label}</FormLabel>
-        <div className="flex items-center gap-1">
-          <div className="flex-1 min-w-0">
-            <Select
-              onValueChange={field.onChange}
-              value={field.value ? String(field.value) : undefined}
-            >
-              <FormControl>
-                <SelectTrigger className="h-7 text-sm">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {options.map((o: any) => (
-                  <SelectItem
-                    key={o.id || o.value || o.nome}
-                    value={String(o.id || o.value || o.nome)}
-                  >
-                    {o.nome || o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    render={({ field }) => {
+      // Bug achado em QA (2026-08-25): quando o valor do campo é setado via
+      // form.reset() (edição de peça existente) antes do usuário nunca ter
+      // aberto o dropdown, o Radix Select não sabe ainda qual label mostrar
+      // pro value já selecionado (o texto só é registrado quando o
+      // SelectContent monta, o que só acontece ao abrir) — o trigger ficava
+      // mostrando "Selecione..." mesmo com marca/categoria já definidas.
+      // Resolvido passando o label já resolvido como children de SelectValue,
+      // em vez de depender da resolução automática do Radix.
+      const selected = options.find(
+        (o: any) => String(o.id ?? o.value ?? o.nome) === String(field.value),
+      )
+      return (
+        <FormItem className="space-y-0.5">
+          <FormLabel className="text-xs">{label}</FormLabel>
+          <div className="flex items-center gap-1">
+            <div className="flex-1 min-w-0">
+              <Select
+                onValueChange={field.onChange}
+                value={field.value ? String(field.value) : undefined}
+              >
+                <FormControl>
+                  <SelectTrigger className="h-7 text-sm">
+                    <SelectValue placeholder="Selecione...">
+                      {selected ? selected.nome || selected.label : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {options.map((o: any) => (
+                    <SelectItem
+                      key={o.id || o.value || o.nome}
+                      value={String(o.id || o.value || o.nome)}
+                    >
+                      {o.nome || o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {extra}
           </div>
-          {extra}
-        </div>
-        <FormMessage className="text-[10px]" />
-      </FormItem>
-    )}
+          <FormMessage className="text-[10px]" />
+        </FormItem>
+      )
+    }}
   />
 )
 
@@ -493,13 +510,6 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
       })
     } else {
       setCodigoProdutoAtual(null)
-      getNextSku(SKU_PREFIX)
-        .then((nextSku) => {
-          if (!form.getValues('sku')) {
-            form.setValue('sku', nextSku, { shouldValidate: true })
-          }
-        })
-        .catch(console.error)
     }
   }, [pecaId, form])
 
