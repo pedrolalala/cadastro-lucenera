@@ -109,7 +109,11 @@ const InputField = ({ control, name, label, type = 'text', readOnly = false }: a
             type={type}
             readOnly={readOnly}
             step={type === 'number' ? '0.01' : undefined}
-            className="h-7 text-sm"
+            // SPEC-158 (P2.5, seguimento): o anel de foco padrão usa
+            // --ring (laranja da marca, main.css) -- pedido do usuário pra
+            // deixar preto na tela de Editar Peça, mesmo padrão já aplicado
+            // nas divisórias das seções.
+            className="h-7 text-sm focus-visible:ring-slate-900"
             {...field}
           />
         </FormControl>
