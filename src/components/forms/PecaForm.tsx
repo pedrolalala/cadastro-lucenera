@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -58,12 +58,14 @@ import {
   getMarcas,
   getCategoriasProduto,
   getEstoqueItens,
-  getNextSku,
   createMarca,
   createFornecedor,
 } from '@/services/produtos'
 
-const SKU_PREFIX = 'teste'
+// Bug achado em QA (2026-08-25): SKU_PREFIX era 'teste' — toda peça nova
+// criada sem referência manual ganhava "teste01", "teste02" etc. como
+// referência permanente. Removido o auto-preenchimento (ver useEffect
+// abaixo); o campo Referência começa vazio em peça nova.
 
 const schema = z.object({
   sku: z.string().optional(),
@@ -121,37 +123,52 @@ const SelectField = ({ control, name, label, options, extra }: any) => (
   <FormField
     control={control}
     name={name}
-    render={({ field }) => (
-      <FormItem className="space-y-0.5">
-        <FormLabel className="text-xs">{label}</FormLabel>
-        <div className="flex items-center gap-1">
-          <div className="flex-1 min-w-0">
-            <Select
-              onValueChange={field.onChange}
-              value={field.value ? String(field.value) : undefined}
-            >
-              <FormControl>
-                <SelectTrigger className="h-7 text-sm">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {options.map((o: any) => (
-                  <SelectItem
-                    key={o.id || o.value || o.nome}
-                    value={String(o.id || o.value || o.nome)}
-                  >
-                    {o.nome || o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    render={({ field }) => {
+      // Bug achado em QA (2026-08-25): quando o valor do campo é setado via
+      // form.reset() (edição de peça existente) antes do usuário nunca ter
+      // aberto o dropdown, o Radix Select não sabe ainda qual label mostrar
+      // pro value já selecionado (o texto só é registrado quando o
+      // SelectContent monta, o que só acontece ao abrir) — o trigger ficava
+      // mostrando "Selecione..." mesmo com marca/categoria já definidas.
+      // Resolvido passando o label já resolvido como children de SelectValue,
+      // em vez de depender da resolução automática do Radix.
+      const selected = options.find(
+        (o: any) => String(o.id ?? o.value ?? o.nome) === String(field.value),
+      )
+      return (
+        <FormItem className="space-y-0.5">
+          <FormLabel className="text-xs">{label}</FormLabel>
+          <div className="flex items-center gap-1">
+            <div className="flex-1 min-w-0">
+              <Select
+                onValueChange={field.onChange}
+                value={field.value ? String(field.value) : undefined}
+              >
+                <FormControl>
+                  <SelectTrigger className="h-7 text-sm">
+                    <SelectValue placeholder="Selecione...">
+                      {selected ? selected.nome || selected.label : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {options.map((o: any) => (
+                    <SelectItem
+                      key={o.id || o.value || o.nome}
+                      value={String(o.id || o.value || o.nome)}
+                    >
+                      {o.nome || o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {extra}
           </div>
-          {extra}
-        </div>
-        <FormMessage className="text-[10px]" />
-      </FormItem>
-    )}
+          <FormMessage className="text-[10px]" />
+        </FormItem>
+      )
+    }}
   />
 )
 
@@ -363,7 +380,26 @@ function FornecedorQuickCreateDialog({
   )
 }
 
-export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSuccess: () => void }) {
+export function PecaForm({
+  pecaId,
+  onSuccess,
+  onCopy,
+}: {
+  pecaId?: string | null
+  onSuccess: () => void
+  // SPEC-158 (P3.1, 2026-09-22, marcado "urgente" pelo usuário): "copiar
+  // produto" -- quase nunca se cadastra uma peça do zero, quase sempre se
+  // parte de uma parecida ("da Evoled, da Interlight... eu vou vir aqui,
+  // ó, 3649, e vou copiar"). Implementado SEM buscar dados de novo: o
+  // formulário já está carregado com a peça de origem (pecaId aponta pra
+  // ela); "Copiar" só avisa o pai (via este callback) pra trocar
+  // editingId -> null, mantendo TODOS os valores já preenchidos no form
+  // intactos (React não remonta o componente, só troca a prop `pecaId`).
+  // codigo_produto novo vem do DEFAULT nextval (createProduto, ramo
+  // pecaId=null) -- nunca copiado. `onCopy` é opcional pra não quebrar
+  // nenhum outro lugar que já use PecaForm sem esse recurso.
+  onCopy?: () => void
+}) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [fornecedores, setFornecedores] = useState<FornecedorOption[]>([])
@@ -485,21 +521,39 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
           porc_bdi: (data as any).porc_bdi || 0,
           porc_st: (data as any).porc_st || 0,
           valor_venda: (data as any).valor_venda || (data as any).preco_venda || 0,
+          // Bug achado em QA (2026-08-25): campos string opcionais no schema
+          // usam z.string().optional(), que só aceita undefined — quando a
+          // coluna vem null do banco, o zod rejeitava com "Invalid input" e
+          // travava o Salvar silenciosamente (sem mensagem visível até rolar
+          // até o campo). sku/referencia/descricao_tecnica/ncm/tipo_fiscal
+          // precisam do mesmo fallback que cst/cest/mascara_produto/
+          // status_comercial já tinham.
+          sku: (data as any).sku || '',
+          referencia: (data as any).referencia || '',
+          descricao_tecnica: (data as any).descricao_tecnica || '',
+          ncm: (data as any).ncm || '',
+          tipo_fiscal: (data as any).tipo_fiscal || '',
           cst: (data as any).cst || '',
           cest: (data as any).cest || '',
           mascara_produto: (data as any).mascara_produto || '',
           status_comercial: (data as any).status_comercial || 'Normal',
         } as FormData)
+        // Bug achado em QA (2026-08-25): form.reset() atualizava
+        // control._defaultValues.marca_id/categoria_id corretamente, mas os
+        // Controllers dos SelectField (marca_id/categoria_id) continuavam
+        // com _formValues vazio ("") — o dropdown ficava em branco e o
+        // Salvar bloqueava com "Obrigatório" mesmo a peça já tendo
+        // marca/categoria definidas. setValue() escreve direto em
+        // _formValues, contornando o problema.
+        form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
+        form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
       })
     } else {
       setCodigoProdutoAtual(null)
-      getNextSku(SKU_PREFIX)
-        .then((nextSku) => {
-          if (!form.getValues('sku')) {
-            form.setValue('sku', nextSku, { shouldValidate: true })
-          }
-        })
-        .catch(console.error)
+      // Achado no revisor do P3.1 (SPEC-158): sem isso, o painel "Estoque
+      // Integrado" continua mostrando o estoque real do produto de origem
+      // após clicar "Copiar", como se já pertencesse ao produto novo.
+      setEstoqueItens([])
     }
   }, [pecaId, form])
 
@@ -770,15 +824,35 @@ export function PecaForm({ pecaId, onSuccess }: { pecaId?: string | null; onSucc
             </div>
             <div className="pt-2 flex justify-between items-center gap-2 mt-auto">
               {pecaId ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1.5" />
-                  Excluir Peça
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Excluir Peça
+                  </Button>
+                  {onCopy && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                      onClick={() => {
+                        const nomeAtual = getValues('nome')
+                        toast({
+                          title: 'Dados copiados',
+                          description: `Novo produto pré-preenchido com os dados de "${nomeAtual}". Ajuste o que for necessário (código, referência, campos alterados) e salve.`,
+                        })
+                        onCopy()
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1.5" />
+                      Copiar
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <div />
               )}
