@@ -416,6 +416,10 @@ export interface ProdutoEstoqueRow {
   estoque_reservado: number
   estoque_disponivel: number
   has_estoque: boolean
+  // SPEC-151: quantidade real do Showroom, lida direto de produtos.estoque_showroom.
+  // NÃO usar estoque_itens(local='Showroom') para isso — o trigger
+  // fn_sync_estoque_itens_from_produtos zera essa linha a cada update de produtos.
+  estoque_showroom: number
 }
 
 export async function getProdutosEstoqueFiltradoBatched(
@@ -436,7 +440,7 @@ export async function getProdutosEstoqueFiltradoBatched(
 
   const selectFields = `
     id, nome, sku, codigo_produto, codigo_legado, referencia, categoria, descricao_tecnica,
-    preco_venda, valor_venda, ativo,
+    preco_venda, valor_venda, ativo, estoque_showroom,
     marca:marcas(nome),
     categoria_rel:categorias_produto(nome),
     estoque:estoque_itens(id, local, quantidade, quantidade_reservada)
@@ -551,6 +555,7 @@ export async function getProdutosEstoqueFiltradoBatched(
       estoque_reservado: totalReservada,
       estoque_disponivel: disponivel,
       has_estoque: estoqueItems.length > 0,
+      estoque_showroom: Number(p.estoque_showroom) || 0,
     }
   })
 

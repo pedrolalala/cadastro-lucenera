@@ -73,6 +73,7 @@ interface PecaData {
   estoque_total: number
   estoque_reservado?: number
   estoque_disponivel: number
+  estoque_showroom?: number | null
 }
 
 export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEdit: () => void }) {
@@ -180,11 +181,20 @@ export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEd
     }
   }, [peca])
 
-  const hasStockRecords = estoqueData.length > 0
-  const estoquePorSetor = useMemo(
-    () => (hasStockRecords ? buildEstoquePorSetor(estoqueData) : []),
-    [estoqueData, hasStockRecords],
-  )
+  // SPEC-151: a quantidade de Showroom nunca vem de estoque_itens — o trigger
+  // fn_sync_estoque_itens_from_produtos zera essa linha (local='Showroom') a
+  // cada update de produtos, para não duplicar soma de estoque. A fonte real
+  // é produtos.estoque_showroom, a mesma que o site público do Showroom usa.
+  const estoqueShowroom = Number(peca?.estoque_showroom) || 0
+  const hasStockRecords = estoqueData.length > 0 || estoqueShowroom > 0
+  const estoquePorSetor = useMemo(() => {
+    if (!hasStockRecords) return []
+    const outrosLocais = buildEstoquePorSetor(estoqueData).filter((i) => i.local !== 'Showroom')
+    return [
+      ...outrosLocais,
+      { local: 'Showroom', quantidade: estoqueShowroom, quantidade_reservada: 0 },
+    ].sort((a, b) => b.quantidade - a.quantidade)
+  }, [estoqueData, hasStockRecords, estoqueShowroom])
   const totalGeral = estoquePorSetor.reduce((s, i) => s + i.quantidade, 0)
   // Comprometido total (reserva + entrega futura) por local — usado só na
   // tabela "Estoque por Local" abaixo, que é uma distribuição física por

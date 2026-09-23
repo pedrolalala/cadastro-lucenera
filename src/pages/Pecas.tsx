@@ -113,6 +113,7 @@ export default function Pecas() {
       estoque_total: row.estoque_total,
       estoque_reservado: row.estoque_reservado,
       estoque_disponivel: row.estoque_disponivel,
+      estoque_showroom: row.estoque_showroom,
     }
   }, [produtos, selectedPecaId])
 
