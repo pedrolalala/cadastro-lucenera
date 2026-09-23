@@ -543,10 +543,14 @@ export function PecaForm({
         // Controllers dos SelectField (marca_id/categoria_id) continuavam
         // com _formValues vazio ("") — o dropdown ficava em branco e o
         // Salvar bloqueava com "Obrigatório" mesmo a peça já tendo
-        // marca/categoria definidas. setValue() escreve direto em
-        // _formValues, contornando o problema.
-        form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
-        form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
+        // marca/categoria definidas. setValue() chamado no mesmo tick do
+        // reset() não bastava (reset com resolver zod reprocessa validação
+        // de forma assíncrona e sobrescrevia o setValue) — precisa rodar
+        // depois, daí o setTimeout 0.
+        setTimeout(() => {
+          form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
+          form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
+        }, 0)
       })
     } else {
       setCodigoProdutoAtual(null)
@@ -613,177 +617,186 @@ export function PecaForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full min-h-0">
           <div className="lg:col-span-3 flex flex-col gap-2 overflow-y-auto pr-2 pb-2">
-          <div className="space-y-1.5 border-2 border-amber-200 rounded-md p-2">
-            <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
-              Dados Básicos
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-0.5">
-                <label className="text-xs font-medium text-muted-foreground">Código *</label>
-                <Input
-                  readOnly
-                  disabled
-                  className="h-7 text-sm bg-slate-100 text-slate-500"
-                  value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
+            <div className="space-y-1.5 border-2 border-amber-200 rounded-md p-2">
+              <h3 className="text-sm font-semibold border-b-2 border-amber-300 pb-1">
+                Dados Básicos
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="text-xs font-medium text-muted-foreground">Código *</label>
+                  <Input
+                    readOnly
+                    disabled
+                    className="h-7 text-sm bg-slate-100 text-slate-500"
+                    value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
+                  />
+                </div>
+                <InputField control={form.control} name="sku" label="Referência" />
+              </div>
+              <InputField control={form.control} name="nome" label="Nome *" />
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField
+                  control={form.control}
+                  name="marca_id"
+                  label="Marca *"
+                  options={marcas}
+                  extra={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => setMarcaModalOpen(true)}
+                      title="Cadastrar nova marca"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+                <SelectField
+                  control={form.control}
+                  name="categoria_id"
+                  label="Categoria *"
+                  options={categorias}
                 />
               </div>
-              <InputField control={form.control} name="sku" label="Referência" />
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField
+                  control={form.control}
+                  name="fornecedor_principal_id"
+                  label="Fornecedor"
+                  options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
+                  extra={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => setFornecedorModalOpen(true)}
+                      title="Cadastrar novo fornecedor"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+                <InputField control={form.control} name="unidade" label="Unidade *" />
+              </div>
+              <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
             </div>
-            <InputField control={form.control} name="nome" label="Nome *" />
-            <div className="grid grid-cols-2 gap-2">
-              <SelectField
-                control={form.control}
-                name="marca_id"
-                label="Marca *"
-                options={marcas}
-                extra={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => setMarcaModalOpen(true)}
-                    title="Cadastrar nova marca"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                }
-              />
-              <SelectField
-                control={form.control}
-                name="categoria_id"
-                label="Categoria *"
-                options={categorias}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <SelectField
-                control={form.control}
-                name="fornecedor_principal_id"
-                label="Fornecedor"
-                options={[{ id: 'none', nome: 'Nenhum' }, ...fornecedores]}
-                extra={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => setFornecedorModalOpen(true)}
-                    title="Cadastrar novo fornecedor"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                }
-              />
-              <InputField control={form.control} name="unidade" label="Unidade *" />
-            </div>
-            <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
-          </div>
 
-          <div className="space-y-1.5 border-2 border-sky-200 rounded-md p-2">
-            <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
-              Engenharia de Custos
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField
-                control={form.control}
-                name="preco_custo"
-                label="Preço Custo (R$)"
-                type="number"
-              />
-              <InputField control={form.control} name="porc_frete" label="% Frete" type="number" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField control={form.control} name="porc_st" label="% ST" type="number" />
-              <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField
-                control={form.control}
-                name="margem_lucro"
-                label="% Lucro"
-                type="number"
-              />
-              <InputField
-                control={form.control}
-                name="porc_despesas"
-                label="% Despesas"
-                type="number"
-              />
-            </div>
-            <div className="bg-slate-50 p-1.5 rounded-md border space-y-1 mt-1">
+            <div className="space-y-1.5 border-2 border-sky-200 rounded-md p-2">
+              <h3 className="text-sm font-semibold border-b-2 border-sky-300 pb-1">
+                Engenharia de Custos
+              </h3>
               <div className="grid grid-cols-2 gap-2">
                 <InputField
                   control={form.control}
-                  name="porc_bdi"
-                  label="Valor BDI Calc. (R$)"
+                  name="preco_custo"
+                  label="Preço Custo (R$)"
                   type="number"
-                  readOnly
                 />
                 <InputField
                   control={form.control}
-                  name="custo_total"
-                  label="Custo Total Calc. (R$)"
+                  name="porc_frete"
+                  label="% Frete"
+                  type="number"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField control={form.control} name="porc_st" label="% ST" type="number" />
+                <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField
+                  control={form.control}
+                  name="margem_lucro"
+                  label="% Lucro"
+                  type="number"
+                />
+                <InputField
+                  control={form.control}
+                  name="porc_despesas"
+                  label="% Despesas"
+                  type="number"
+                />
+              </div>
+              <div className="bg-slate-50 p-1.5 rounded-md border space-y-1 mt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <InputField
+                    control={form.control}
+                    name="porc_bdi"
+                    label="Valor BDI Calc. (R$)"
+                    type="number"
+                    readOnly
+                  />
+                  <InputField
+                    control={form.control}
+                    name="custo_total"
+                    label="Custo Total Calc. (R$)"
+                    type="number"
+                    readOnly
+                  />
+                </div>
+                <InputField
+                  control={form.control}
+                  name="preco_venda"
+                  label="Preço Venda Final (R$)"
                   type="number"
                   readOnly
                 />
               </div>
-              <InputField
-                control={form.control}
-                name="preco_venda"
-                label="Preço Venda Final (R$)"
-                type="number"
-                readOnly
-              />
             </div>
-          </div>
 
-          <div className="space-y-1.5 border-2 border-violet-200 rounded-md p-2">
-            <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
-              Dados Fiscais
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField control={form.control} name="ncm" label="NCM" />
-              <InputField control={form.control} name="tipo_fiscal" label="Tipo Fiscal" />
+            <div className="space-y-1.5 border-2 border-violet-200 rounded-md p-2">
+              <h3 className="text-sm font-semibold border-b-2 border-violet-300 pb-1">
+                Dados Fiscais
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField control={form.control} name="ncm" label="NCM" />
+                <InputField control={form.control} name="tipo_fiscal" label="Tipo Fiscal" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField control={form.control} name="cst" label="CST" />
+                <InputField control={form.control} name="cest" label="CEST" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <InputField
+                  control={form.control}
+                  name="icms_entrada"
+                  label="% ICMS Entr."
+                  type="number"
+                />
+                <InputField
+                  control={form.control}
+                  name="mascara_produto"
+                  label="Máscara / Família"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <SelectField
+                  control={form.control}
+                  name="status_comercial"
+                  label="Status Comercial"
+                  options={[
+                    { id: 'Normal', nome: 'Normal' },
+                    { id: 'Lançamento', nome: 'Lançamento' },
+                    { id: 'Fora de Linha', nome: 'Fora de Linha' },
+                  ]}
+                />
+                <FormField
+                  control={form.control}
+                  name="ativo"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between border p-1.5 rounded-md h-7">
+                      <FormLabel className="text-xs">Ativo</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField control={form.control} name="cst" label="CST" />
-              <InputField control={form.control} name="cest" label="CEST" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <InputField
-                control={form.control}
-                name="icms_entrada"
-                label="% ICMS Entr."
-                type="number"
-              />
-              <InputField control={form.control} name="mascara_produto" label="Máscara / Família" />
-            </div>
-            <div className="grid grid-cols-2 gap-2 items-end">
-              <SelectField
-                control={form.control}
-                name="status_comercial"
-                label="Status Comercial"
-                options={[
-                  { id: 'Normal', nome: 'Normal' },
-                  { id: 'Lançamento', nome: 'Lançamento' },
-                  { id: 'Fora de Linha', nome: 'Fora de Linha' },
-                ]}
-              />
-              <FormField
-                control={form.control}
-                name="ativo"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between border p-1.5 rounded-md h-7">
-                    <FormLabel className="text-xs">Ativo</FormLabel>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
           </div>
 
           <div className="flex flex-col h-full min-h-[250px] overflow-hidden border-2 border-emerald-200 rounded-md p-2">
@@ -860,7 +873,11 @@ export function PecaForm({
                 <Button type="button" variant="outline" onClick={onSuccess}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-700">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-amber-600 hover:bg-amber-700"
+                >
                   {loading ? 'Salvando...' : 'Salvar Peça'}
                 </Button>
               </div>
@@ -874,8 +891,7 @@ export function PecaForm({
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir esta peça?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O cadastro da peça será removido
-              permanentemente.
+              Esta ação não pode ser desfeita. O cadastro da peça será removido permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

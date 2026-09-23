@@ -9,12 +9,17 @@ export default function Login() {
   const [email, setEmail] = useState('pedro@lucenera.com.br')
   const [password, setPassword] = useState('Skip@Pass')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { signIn } = useAuth()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    await signIn(email, password)
+    setError(null)
+    const { error: signInError } = await signIn(email, password)
+    if (signInError) {
+      setError('Credenciais inválidas. Verifique e tente novamente.')
+    }
     setLoading(false)
   }
 
@@ -32,6 +37,11 @@ export default function Login() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Input
                 type="email"

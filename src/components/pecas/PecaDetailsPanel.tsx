@@ -75,13 +75,7 @@ interface PecaData {
   estoque_disponivel: number
 }
 
-export function PecaDetailsPanel({
-  peca,
-  onEdit,
-}: {
-  peca: PecaData | null
-  onEdit: () => void
-}) {
+export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEdit: () => void }) {
   const [estoqueData, setEstoqueData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [reservasData, setReservasData] = useState<ReservaProdutoRow[]>([])

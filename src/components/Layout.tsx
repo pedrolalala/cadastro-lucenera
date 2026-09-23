@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { AppHeader } from './AppHeader'
 import { PecaModal } from './modals/PecaModal'
+import { SystemSwitcher } from './SystemSwitcher'
 
 export default function Layout() {
   return (
@@ -15,6 +16,7 @@ export default function Layout() {
       </div>
 
       <PecaModal />
+      <SystemSwitcher currentSlug="cadastro" />
     </div>
   )
 }
