@@ -285,12 +285,17 @@ export default function Pecas() {
                         )}
                       >
                         <TableCell className="pl-4 sm:pl-6 pr-2 hidden md:table-cell align-middle py-2">
-                          <span className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                          {/* SPEC-158 (P2.5): "código" e "referência" ficavam em
+                              cinza/laranja claro, forçando a vista para ler --
+                              pedido do usuário (22/09/2026): manter o visual
+                              discreto (fonte pequena, badge da referência),
+                              mas com o texto preto/quase preto. */}
+                          <span className="font-mono text-xs text-slate-900 whitespace-nowrap">
                             {p.codigo_produto ?? p.codigo_legado ?? '-'}
                           </span>
                         </TableCell>
                         <TableCell className="pl-4 sm:pl-6 md:pl-2 align-middle py-2">
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs font-semibold whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-slate-900 font-mono text-xs font-semibold whitespace-nowrap">
                             {p.referencia || p.sku || '-'}
                           </span>
                         </TableCell>
