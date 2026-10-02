@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, Box, Plus, X } from 'lucide-react'
+import { Search, Box, Plus, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import useDataStore from '@/stores/use-data-store'
 import {
   getProdutosEstoqueFiltradoBatched,
@@ -20,6 +20,8 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { PecaDetailsPanel } from '@/components/pecas/PecaDetailsPanel'
 import { FilterCombobox } from '@/components/pecas/FilterCombobox'
+// SPEC-174 N7: canEdit decide Editar/Copiar/Excluir e o duplo clique.
+import { useAuth } from '@/hooks/use-auth'
 
 const formatCurrency = (v: number | null | undefined) =>
   v == null
@@ -28,9 +30,69 @@ const formatCurrency = (v: number | null | undefined) =>
 
 const VISIBLE_BATCH = 100
 
+// SPEC-122: mesmo padrão de ordenação por coluna já em produção em
+// Orçamentos (ProductSearchModal.tsx) — o usuário escolhe qual coluna
+// manda, em vez de ficar preso à ordem fixa que o service já devolve
+// (estoque disponível desc, depois nome).
+type SortKey =
+  | 'codigo_produto'
+  | 'referencia'
+  | 'nome'
+  | 'marca_nome'
+  | 'preco'
+  | 'estoque_total'
+  | 'estoque_disponivel'
+type SortDir = 'asc' | 'desc'
+
+const SORT_COLS: { key: SortKey; label: string }[] = [
+  { key: 'codigo_produto', label: 'Código' },
+  { key: 'referencia', label: 'Referência' },
+  { key: 'nome', label: 'Descrição' },
+  { key: 'marca_nome', label: 'Marca' },
+  { key: 'preco', label: 'Preço Venda' },
+  { key: 'estoque_total', label: 'Estoque Total' },
+  { key: 'estoque_disponivel', label: 'Disponível' },
+]
+
+function getSortValue(row: any, key: SortKey): string | number {
+  switch (key) {
+    case 'codigo_produto':
+      return row.codigo_produto ?? row.codigo_legado ?? 0
+    case 'referencia':
+      return row.referencia || row.sku || ''
+    case 'nome':
+      return row.nome || ''
+    case 'marca_nome':
+      return row.marca_nome || ''
+    case 'preco':
+      return row.valor_venda ?? row.preco_venda ?? 0
+    case 'estoque_total':
+      return row.estoque_total ?? 0
+    case 'estoque_disponivel':
+      return row.estoque_disponivel ?? 0
+    default:
+      return ''
+  }
+}
+
+function sortProdutos(data: any[], key: SortKey, dir: SortDir): any[] {
+  return [...data].sort((a, b) => {
+    const va = getSortValue(a, key)
+    const vb = getSortValue(b, key)
+    const cmp =
+      typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb))
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
 export default function Pecas() {
   const { activeModal, setActiveModal } = useDataStore()
   const { toast } = useToast()
+  // SPEC-174 N7: todo mundo com acesso ao Cadastro consulta produto; só quem
+  // tem a ação "editar" (hub_pode_executar) abre a edição pelo duplo clique.
+  const { canEdit, canCreate } = useAuth()
 
   const [produtos, setProdutos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,6 +111,20 @@ export default function Pecas() {
 
   const [selectedPecaId, setSelectedPecaId] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(VISIBLE_BATCH)
+
+  // SPEC-122: null = mantém a ordem que o service já devolve (estoque
+  // disponível desc, depois nome) — só passa a ter uma coluna "no comando"
+  // depois que o usuário clica em algum cabeçalho.
+  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchInput), 400)
@@ -95,8 +171,13 @@ export default function Pecas() {
     setVisibleCount(VISIBLE_BATCH)
   }, [debouncedSearch, marcaId, categoriaId])
 
+  const sortedProdutos = useMemo(
+    () => (sortKey ? sortProdutos(produtos, sortKey, sortDir) : produtos),
+    [produtos, sortKey, sortDir],
+  )
+
   const selectedPeca = useMemo(() => {
-    const row = produtos.find((p) => p.id === selectedPecaId)
+    const row = sortedProdutos.find((p) => p.id === selectedPecaId)
     if (!row) return null
     return {
       id: row.id,
@@ -115,9 +196,9 @@ export default function Pecas() {
       estoque_disponivel: row.estoque_disponivel,
       estoque_showroom: row.estoque_showroom,
     }
-  }, [produtos, selectedPecaId])
+  }, [sortedProdutos, selectedPecaId])
 
-  const visibleItems = produtos.slice(0, visibleCount)
+  const visibleItems = sortedProdutos.slice(0, visibleCount)
   const hasActiveFilters = !!searchInput || !!marcaId || !!categoriaId
 
   const handleClearFilters = () => {
@@ -129,13 +210,21 @@ export default function Pecas() {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 300 && visibleCount < produtos.length) {
-      setVisibleCount((prev) => Math.min(prev + VISIBLE_BATCH, produtos.length))
+    if (
+      el.scrollHeight - el.scrollTop - el.clientHeight < 300 &&
+      visibleCount < sortedProdutos.length
+    ) {
+      setVisibleCount((prev) => Math.min(prev + VISIBLE_BATCH, sortedProdutos.length))
     }
   }
 
   const marcaOptions = marcas.map((m) => ({ value: m.id, label: m.nome }))
   const categoriaOptions = categorias.map((c) => ({ value: c.id, label: c.nome }))
+
+  const renderSortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown className="w-3 h-3 opacity-40" />
+    return sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+  }
 
   return (
     <div className="flex flex-col space-y-4 w-full pb-20 lg:pb-0 xl:h-[calc(100vh-130px)] animate-fade-in-up">
@@ -148,13 +237,17 @@ export default function Pecas() {
             Gerencie o catálogo e inventário de peças e produtos.
           </p>
         </div>
-        <Button
-          onClick={() => setActiveModal('peca')}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm w-full sm:w-auto"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Peça
-        </Button>
+        {/* SPEC-174 N7 (decisão 02/10): "Nova Peça" só para quem tem a ação
+            "criar" no Cadastro (administração + compras). */}
+        {canCreate && (
+          <Button
+            onClick={() => setActiveModal('peca')}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Peça
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
@@ -206,33 +299,55 @@ export default function Pecas() {
             <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100 shrink-0">
               {loading
                 ? `Carregando... ${progress.loaded}${progress.total ? `/${progress.total}` : ''} peças`
-                : `${visibleItems.length} de ${produtos.length} registros ativos`}
+                : `${visibleItems.length} de ${sortedProdutos.length} registros ativos`}
             </div>
             <div className="overflow-auto flex-1" onScroll={handleScroll}>
               <Table className="w-full table-fixed">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
-                    <TableHead className="w-[9%] pl-4 sm:pl-6 pr-2 hidden md:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Código
-                    </TableHead>
-                    <TableHead className="w-[15%] pl-4 sm:pl-6 md:pl-2 text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Referência
-                    </TableHead>
-                    <TableHead className="text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Descrição
-                    </TableHead>
-                    <TableHead className="w-[12%] hidden xl:table-cell text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Marca
-                    </TableHead>
-                    <TableHead className="w-[11%] text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Preço Venda
-                    </TableHead>
-                    <TableHead className="w-[10%] hidden lg:table-cell text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Estoque Total
-                    </TableHead>
-                    <TableHead className="w-[12%] pr-4 sm:pr-6 text-right text-slate-600 font-semibold text-xs uppercase tracking-wide">
-                      Disponível
-                    </TableHead>
+                    {SORT_COLS.map((col) => {
+                      const widthClass =
+                        col.key === 'codigo_produto'
+                          ? 'w-[9%] pl-4 sm:pl-6 pr-2 hidden md:table-cell'
+                          : col.key === 'referencia'
+                            ? 'w-[15%] pl-4 sm:pl-6 md:pl-2'
+                            : col.key === 'nome'
+                              ? ''
+                              : col.key === 'marca_nome'
+                                ? 'w-[12%] hidden xl:table-cell'
+                                : col.key === 'preco'
+                                  ? 'w-[11%] text-right'
+                                  : col.key === 'estoque_total'
+                                    ? 'w-[10%] hidden lg:table-cell text-right'
+                                    : 'w-[12%] pr-4 sm:pr-6 text-right'
+                      const justify =
+                        col.key === 'preco' ||
+                        col.key === 'estoque_total' ||
+                        col.key === 'estoque_disponivel'
+                          ? 'justify-end'
+                          : ''
+                      return (
+                        <TableHead
+                          key={col.key}
+                          className={cn(
+                            widthClass,
+                            'text-slate-600 font-semibold text-xs uppercase tracking-wide',
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSort(col.key)}
+                            className={cn(
+                              'flex items-center gap-1 hover:text-slate-900',
+                              justify && `w-full ${justify}`,
+                            )}
+                          >
+                            {col.label}
+                            {renderSortIcon(col.key)}
+                          </button>
+                        </TableHead>
+                      )
+                    })}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -277,12 +392,20 @@ export default function Pecas() {
                       <TableRow
                         key={`${p.id}-${idx}`}
                         onClick={() => setSelectedPecaId(p.id)}
-                        onDoubleClick={() => setActiveModal('peca', p.id)}
+                        onDoubleClick={() => {
+                          if (canEdit) setActiveModal('peca', p.id)
+                        }}
                         className={cn(
-                          'cursor-pointer transition-colors h-14 border-b border-slate-50',
+                          // SPEC-174 N5: destaque anterior (bg-primary/5) era fraco
+                          // demais em alguns monitores -- só a célula da referência
+                          // (bg-primary/10, mais saturada) parecia destacada. Agora
+                          // a linha inteira fica com fundo âmbar mais forte e uma
+                          // borda lateral esquerda de indicador; texto de código e
+                          // referência continuam pretos (SPEC-158 P2.5), não mudam.
+                          'cursor-pointer transition-colors h-14 border-b border-slate-50 border-l-4',
                           selectedPecaId === p.id
-                            ? 'bg-primary/5 hover:bg-primary/10'
-                            : 'hover:bg-slate-50/80',
+                            ? 'bg-amber-200/80 hover:bg-amber-200/80 border-l-amber-500'
+                            : 'border-l-transparent hover:bg-slate-50/80',
                         )}
                       >
                         <TableCell className="pl-4 sm:pl-6 pr-2 hidden md:table-cell align-middle py-2">
@@ -356,9 +479,9 @@ export default function Pecas() {
                   )}
                 </TableBody>
               </Table>
-              {visibleCount < produtos.length && !loading && (
+              {visibleCount < sortedProdutos.length && !loading && (
                 <div className="py-3 text-center text-xs text-slate-400">
-                  Role para carregar mais... ({produtos.length - visibleCount} restantes)
+                  Role para carregar mais... ({sortedProdutos.length - visibleCount} restantes)
                 </div>
               )}
             </div>
@@ -370,6 +493,7 @@ export default function Pecas() {
               dentro da edição completa (PecaForm.tsx via PecaModal). */}
           <PecaDetailsPanel
             peca={selectedPeca}
+            canEdit={!!canEdit}
             onEdit={() => setActiveModal('peca', selectedPeca?.id)}
           />
         </div>

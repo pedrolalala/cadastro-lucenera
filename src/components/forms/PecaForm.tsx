@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -6,6 +6,11 @@ import { Plus, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
+// SPEC-174 N6b: mesma função usada em PecaDetailsPanel.tsx pra agrupar
+// estoque_itens por setor (local), reaproveitada aqui pra listar os setores
+// reais do produto em vez de só repetir as linhas cruas de getEstoqueItens.
+import { buildEstoquePorSetor, isSetorForaDoGeral } from '@/lib/estoque-sectors'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,15 +44,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
+// SPEC-174 N7: Excluir/Copiar só aparecem com a ação "editar" no Cadastro.
+import { useAuth } from '@/hooks/use-auth'
 import {
   getProduto,
   createProduto,
@@ -405,6 +404,9 @@ export function PecaForm({
   onCopy?: () => void
 }) {
   const { toast } = useToast()
+  // SPEC-174 N7: todo mundo com acesso ao Cadastro chega até aqui (consulta);
+  // Excluir/Copiar só aparecem para quem tem a ação "editar".
+  const { canEdit } = useAuth()
   const [loading, setLoading] = useState(false)
   const [fornecedores, setFornecedores] = useState<FornecedorOption[]>([])
   const [marcas, setMarcas] = useState<MarcaOption[]>([])
@@ -414,6 +416,11 @@ export function PecaForm({
   // gerado pelo DEFAULT nextval(produtos_codigo_produto_seq) da coluna.
   // Aqui só guardamos o valor para exibição (existente ao editar).
   const [codigoProdutoAtual, setCodigoProdutoAtual] = useState<number | null>(null)
+  // SPEC-174 N6b: estoque_showroom nunca aparece em estoque_itens (mesmo
+  // motivo documentado em PecaDetailsPanel.tsx -- o trigger
+  // fn_sync_estoque_itens_from_produtos zera essa linha). Guardado aqui só
+  // pra exibição no bloco "Estoque Integrado", igual ao painel lateral.
+  const [estoqueShowroomAtual, setEstoqueShowroomAtual] = useState<number>(0)
   const [marcaModalOpen, setMarcaModalOpen] = useState(false)
   const [fornecedorModalOpen, setFornecedorModalOpen] = useState(false)
   // SPEC-115: excluir peça saiu do painel rápido da listagem (clique
@@ -517,6 +524,7 @@ export function PecaForm({
       Promise.all([getProduto(pecaId), getEstoqueItens(pecaId)]).then(([data, estq]) => {
         setEstoqueItens(estq || [])
         setCodigoProdutoAtual((data as any).codigo_produto ?? null)
+        setEstoqueShowroomAtual(Number((data as any).estoque_showroom) || 0)
         form.reset({
           ...data,
           fornecedor_principal_id: data.fornecedor_principal_id || 'none',
@@ -562,8 +570,23 @@ export function PecaForm({
       // Integrado" continua mostrando o estoque real do produto de origem
       // após clicar "Copiar", como se já pertencesse ao produto novo.
       setEstoqueItens([])
+      setEstoqueShowroomAtual(0)
     }
   }, [pecaId, form])
+
+  // SPEC-174 N6b: o bloco "Estoque Integrado" mostrava uma tabela estreita
+  // com as linhas cruas de estoque_itens (sem o setor Showroom, que vive só
+  // em produtos.estoque_showroom -- ver comentário acima). Reaproveita o
+  // mesmo agrupamento por setor de PecaDetailsPanel.tsx e inclui o Showroom,
+  // listando todos os setores que o produto realmente tem nos dados.
+  const estoquePorSetorForm = useMemo(() => {
+    const outrosLocais = buildEstoquePorSetor(estoqueItens).filter((i) => i.local !== 'Showroom')
+    if (outrosLocais.length === 0 && estoqueShowroomAtual === 0) return []
+    return [
+      ...outrosLocais,
+      { local: 'Showroom', quantidade: estoqueShowroomAtual, quantidade_reservada: 0 },
+    ].sort((a, b) => b.quantidade - a.quantidade)
+  }, [estoqueItens, estoqueShowroomAtual])
 
   const handleMarcaCreated = useCallback(
     (marca: MarcaOption) => {
@@ -619,8 +642,10 @@ export function PecaForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full min-h-0">
-          <div className="lg:col-span-3 flex flex-col gap-2 overflow-y-auto pr-2 pb-2">
+        {/* SPEC-174 N6b: coluna do "Estoque Integrado" (5ª parte, era 4ª) um
+            pouco mais estreita, pra dar mais espaço ao formulário. */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-full min-h-0">
+          <div className="lg:col-span-4 flex flex-col gap-2 overflow-y-auto pr-2 pb-2">
             <div className="space-y-1.5 border-2 border-slate-900 rounded-md p-2">
               <h3 className="text-sm font-semibold border-b-2 border-slate-900 pb-1">
                 Dados Básicos
@@ -807,44 +832,74 @@ export function PecaForm({
             <h3 className="text-sm font-semibold border-b-2 border-slate-900 pb-1 mb-1.5">
               Estoque Integrado
             </h3>
-            <div className="border rounded-md flex-1 overflow-auto bg-slate-50">
-              <Table>
-                <TableHeader className="bg-slate-100 sticky top-0">
-                  <TableRow>
-                    <TableHead className="h-8 py-1 px-2 text-xs">Setor</TableHead>
-                    <TableHead className="h-8 py-1 px-2 text-xs text-right">Atual</TableHead>
-                    <TableHead className="h-8 py-1 px-2 text-xs text-right">Reserv.</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {estoqueItens.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-xs text-slate-500 py-4">
-                        Salvar para ver estoque
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    estoqueItens.map((i) => (
-                      <TableRow key={i.id} className="h-8">
-                        <TableCell className="py-1 px-2 text-xs font-medium">{i.local}</TableCell>
-                        <TableCell className="py-1 px-2 text-xs text-right">
-                          {i.quantidade}
-                        </TableCell>
-                        <TableCell className="py-1 px-2 text-xs text-right text-slate-500">
-                          {i.quantidade_reservada || 0}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+            {/* SPEC-174 N6b: lista vertical (um setor por bloco), em vez da
+                tabela de 3 colunas lado a lado (Setor | Atual | Reserv.) que
+                só mostrava as linhas cruas de estoque_itens -- sem Showroom
+                (setor próprio, fonte produtos.estoque_showroom) e sem
+                Disponível por setor. Mesma fonte de dados de
+                PecaDetailsPanel.tsx ("Estoque por Local"), só que aqui cada
+                setor ocupa sua própria linha, de cima a baixo. */}
+            <div className="border rounded-md flex-1 overflow-auto bg-slate-50 divide-y divide-slate-200">
+              {estoquePorSetorForm.length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-4">Salvar para ver estoque</p>
+              ) : (
+                estoquePorSetorForm.map((s) => {
+                  const disponivel = s.quantidade - (s.quantidade_reservada || 0)
+                  // SPEC-174 N8: Casa Cor/Garantia ficam visíveis aqui, mas
+                  // fora do estoque geral/disponível do produto (decisão
+                  // "Setor separado", reunião de 01/10).
+                  const foraDoGeral = isSetorForaDoGeral(s.local)
+                  return (
+                    <div key={s.local} className="px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-slate-700 truncate flex items-center gap-1">
+                          {s.local}
+                          {foraDoGeral && (
+                            <span className="text-[8px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                              fora do disponível
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-900 shrink-0">
+                          {s.quantidade}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 mt-0.5">
+                        <span>Reservado: {s.quantidade_reservada || 0}</span>
+                        <span
+                          className={cn(
+                            'font-medium',
+                            disponivel > 0
+                              ? 'text-emerald-600'
+                              : disponivel < 0
+                                ? 'text-destructive'
+                                : 'text-slate-400',
+                          )}
+                        >
+                          Disponível: {disponivel}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
-            <div className="pt-2 flex justify-between items-center gap-2 mt-auto">
-              {pecaId ? (
-                <div className="flex gap-2">
+            {/* SPEC-174 N6a: Excluir/Copiar/Salvar não cabiam numa linha só
+                (justify-between) na largura desta coluna -- o Salvar ficava
+                cortado pelo overflow-hidden do painel. Agora Excluir/Copiar
+                ficam numa linha com quebra (flex-wrap) e Cancelar/Salvar
+                sempre dividem a linha de baixo em duas metades (flex-1),
+                cabendo inteiros mesmo com a coluna mais estreita (N6b). */}
+            <div className="pt-2 flex flex-col gap-2 mt-auto">
+              {/* SPEC-174 N7: Excluir/Copiar só aparecem com a ação "editar"
+                  no Cadastro (hub_pode_executar); sem permissão, a peça
+                  continua só em modo de consulta/leitura. */}
+              {pecaId && canEdit && (
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
                     className="text-red-600 border-red-200 hover:bg-red-50"
                     onClick={() => setDeleteDialogOpen(true)}
                   >
@@ -855,6 +910,7 @@ export function PecaForm({
                     <Button
                       type="button"
                       variant="outline"
+                      size="sm"
                       className="text-amber-700 border-amber-200 hover:bg-amber-50"
                       onClick={() => {
                         const nomeAtual = getValues('nome')
@@ -870,17 +926,22 @@ export function PecaForm({
                     </Button>
                   )}
                 </div>
-              ) : (
-                <div />
               )}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={onSuccess}>
+              {/* flex-wrap + min-w: se a coluna ficar estreita demais, o Salvar
+                  desce para a linha de baixo em vez de ser cortado. */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 min-w-[7rem]"
+                  onClick={onSuccess}
+                >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="bg-amber-600 hover:bg-amber-700"
+                  className="flex-1 min-w-[7rem] bg-amber-600 hover:bg-amber-700"
                 >
                   {loading ? 'Salvando...' : 'Salvar Peça'}
                 </Button>

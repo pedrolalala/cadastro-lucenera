@@ -31,7 +31,7 @@ import {
   type PedidoCompraEmTransitoRow,
   type FornecedorSugeridoProdutoRow,
 } from '@/services/produtos'
-import { buildEstoquePorSetor } from '@/lib/estoque-sectors'
+import { buildEstoquePorSetor, isSetorForaDoGeral } from '@/lib/estoque-sectors'
 import { cn } from '@/lib/utils'
 
 // SPEC-049: mesmo dicionário de rótulos de status de pedido de compra usado em
@@ -76,7 +76,17 @@ interface PecaData {
   estoque_showroom?: number | null
 }
 
-export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEdit: () => void }) {
+export function PecaDetailsPanel({
+  peca,
+  canEdit,
+  onEdit,
+}: {
+  peca: PecaData | null
+  // SPEC-174 N7: todo mundo que abre este painel já consultou o produto;
+  // só quem tem a ação "editar" no Cadastro (hub_pode_executar) vê o botão.
+  canEdit: boolean
+  onEdit: () => void
+}) {
   const [estoqueData, setEstoqueData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [reservasData, setReservasData] = useState<ReservaProdutoRow[]>([])
@@ -195,11 +205,18 @@ export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEd
       { local: 'Showroom', quantidade: estoqueShowroom, quantidade_reservada: 0 },
     ].sort((a, b) => b.quantidade - a.quantidade)
   }, [estoqueData, hasStockRecords, estoqueShowroom])
-  const totalGeral = estoquePorSetor.reduce((s, i) => s + i.quantidade, 0)
+  // SPEC-174 N8: Casa Cor/Garantia aparecem na tabela (estoquePorSetor
+  // continua com todos os setores), mas não entram no total geral nem no
+  // disponível -- decisão "Setor separado" da reunião de 01/10.
+  const estoquePorSetorGeral = estoquePorSetor.filter((i) => !isSetorForaDoGeral(i.local))
+  const totalGeral = estoquePorSetorGeral.reduce((s, i) => s + i.quantidade, 0)
   // Comprometido total (reserva + entrega futura) por local — usado só na
   // tabela "Estoque por Local" abaixo, que é uma distribuição física por
   // depósito (estoque_itens não distingue setor de reserva por local).
-  const totalComprometido = estoquePorSetor.reduce((s, i) => s + (i.quantidade_reservada || 0), 0)
+  const totalComprometido = estoquePorSetorGeral.reduce(
+    (s, i) => s + (i.quantidade_reservada || 0),
+    0,
+  )
   const totalDisponivelPorLocal = totalGeral - totalComprometido
   // SPEC-101: os badges do cabeçalho ("Reservado"/"Disponível") são a métrica
   // agregada de negócio, não por local — "Reservado" tem que ser só o que
@@ -255,16 +272,21 @@ export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEd
               aqui apagava o cadastro direto. Fica só dentro da edição
               completa (PecaForm.tsx) agora. "Editar" continua aqui, já
               aceito pelo usuário — ele já leva pro cadastro completo. */}
-          <div className="flex flex-col gap-2 shrink-0">
-            <Button
-              size="sm"
-              className="bg-slate-900 hover:bg-slate-800 text-white h-8 text-xs w-full"
-              onClick={onEdit}
-            >
-              <Edit className="h-3 w-3 mr-1.5" />
-              Editar
-            </Button>
-          </div>
+          {/* SPEC-174 N7: sem a ação "editar" no Cadastro, o botão nem
+              aparece -- consulta de produto continua liberada pra todo
+              mundo com acesso ao sistema. */}
+          {canEdit && (
+            <div className="flex flex-col gap-2 shrink-0">
+              <Button
+                size="sm"
+                className="bg-slate-900 hover:bg-slate-800 text-white h-8 text-xs w-full"
+                onClick={onEdit}
+              >
+                <Edit className="h-3 w-3 mr-1.5" />
+                Editar
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -353,10 +375,18 @@ export function PecaDetailsPanel({ peca, onEdit }: { peca: PecaData | null; onEd
               <TableBody>
                 {estoquePorSetor.map((i) => {
                   const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
+                  const foraDoGeral = isSetorForaDoGeral(i.local)
                   return (
                     <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
                       <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[180px]">
                         {i.local}
+                        {/* SPEC-174 N8: Casa Cor/Garantia ficam visíveis mas
+                            fora do estoque geral/disponível do produto. */}
+                        {foraDoGeral && (
+                          <span className="ml-1.5 inline-block text-[9px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 align-middle">
+                            fora do disponível
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2 px-2 text-xs text-right">
                         <span

@@ -7,6 +7,14 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   hasAccess: boolean | null
+  // SPEC-174 N7: todo mundo com `hasAccess` consulta produto; só quem tem a
+  // ação "editar" no sistema "cadastro" (via hub_pode_executar) vê/usa
+  // Editar/Copiar/Excluir e o duplo clique que abre edição. null enquanto
+  // não resolvido ainda (trata como sem permissão até a RPC responder).
+  canEdit: boolean | null
+  // SPEC-174 N7 (decisão 02/10): "Nova Peça" só para quem tem a ação "criar"
+  // no Cadastro (administração + compras). null enquanto não resolvido.
+  canCreate: boolean | null
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
@@ -25,6 +33,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [hasAccess, setHasAccess] = useState<boolean | null>(null)
+  const [canEdit, setCanEdit] = useState<boolean | null>(null)
+  const [canCreate, setCanCreate] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
 
   // SPEC-069: este app só checava estar logado, sem nenhuma permissão
@@ -44,6 +54,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         p_acao: null,
       })
       .then(({ data }) => setHasAccess(Boolean(data)))
+  }, [user?.id])
+
+  // SPEC-174 N7: permissão por ação, mesmo mecanismo (hub_pode_executar),
+  // agora com p_acao = 'editar'. A matriz papel x ação (quem tem a ação
+  // "editar" em papel_permissoes para o sistema "cadastro") ainda vai ser
+  // fechada com o Vinícius (ligação de 02/10) — este hook só consulta o que
+  // já estiver cadastrado no Hub, sem nenhuma regra fixa por e-mail/nome.
+  useEffect(() => {
+    if (!user?.id) {
+      setCanEdit(null)
+      return
+    }
+    supabase
+      .rpc('hub_pode_executar', {
+        p_usuario_id: user.id,
+        p_system_slug: 'cadastro',
+        p_modulo_chave: null,
+        p_acao: 'editar',
+      })
+      .then(({ data }) => setCanEdit(Boolean(data)))
+  }, [user?.id])
+
+  // SPEC-174 N7: mesma checagem, ação "criar" (botão "Nova Peça").
+  useEffect(() => {
+    if (!user?.id) {
+      setCanCreate(null)
+      return
+    }
+    supabase
+      .rpc('hub_pode_executar', {
+        p_usuario_id: user.id,
+        p_system_slug: 'cadastro',
+        p_modulo_chave: null,
+        p_acao: 'criar',
+      })
+      .then(({ data }) => setCanCreate(Boolean(data)))
   }, [user?.id])
 
   useEffect(() => {
@@ -101,7 +147,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, hasAccess, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider
+      value={{ user, session, hasAccess, canEdit, canCreate, signUp, signIn, signOut, loading }}
+    >
       {children}
     </AuthContext.Provider>
   )

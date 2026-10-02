@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase/client'
 import { Database } from '@/lib/supabase/types'
+// SPEC-174 N8: Casa Cor/Garantia não entram no estoque geral nem no
+// disponível (decisão "Setor separado", reunião de 01/10).
+import { isSetorForaDoGeral } from '@/lib/estoque-sectors'
 
 type Produto = Database['public']['Tables']['produtos']['Row']
 type ProdutoInsert = Database['public']['Tables']['produtos']['Insert']
@@ -529,12 +532,16 @@ export async function getProdutosEstoqueFiltradoBatched(
     const marcaNome = p.marca?.nome || null
     const categoriaNome = p.categoria_rel?.nome || p.categoria || null
     const estoqueItems = Array.isArray(p.estoque) ? p.estoque : []
+    // SPEC-174 N8: Estoque Total/Disponível (colunas da lista) não somam
+    // Casa Cor/Garantia -- esses setores ficam visíveis só no painel de
+    // detalhes (PecaDetailsPanel.tsx), fora do estoque geral.
+    const estoqueItemsGeral = estoqueItems.filter((ei: any) => !isSetorForaDoGeral(ei.local))
 
-    const totalQuantidade = estoqueItems.reduce(
+    const totalQuantidade = estoqueItemsGeral.reduce(
       (sum: number, ei: any) => sum + (Number(ei.quantidade) || 0),
       0,
     )
-    const totalReservada = estoqueItems.reduce(
+    const totalReservada = estoqueItemsGeral.reduce(
       (sum: number, ei: any) => sum + (Number(ei.quantidade_reservada) || 0),
       0,
     )
@@ -554,7 +561,7 @@ export async function getProdutosEstoqueFiltradoBatched(
       estoque_total: totalQuantidade,
       estoque_reservado: totalReservada,
       estoque_disponivel: disponivel,
-      has_estoque: estoqueItems.length > 0,
+      has_estoque: estoqueItemsGeral.length > 0,
       estoque_showroom: Number(p.estoque_showroom) || 0,
     }
   })
