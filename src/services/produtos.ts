@@ -202,6 +202,23 @@ export async function getReservasProduto(produtoId: string): Promise<ReservaProd
   return (data || []) as ReservaProdutoRow[]
 }
 
+// SPEC-174 N6c: Reserva, Separação e Entrega Futura somadas por peça
+// (migration 20261002_174f_vw_cadastro_produto_setores). Sem linha = zeros.
+export async function getSetoresProduto(
+  produtoId: string,
+): Promise<{ q_reserva: number; q_separacao: number; q_entrega_futura: number }> {
+  const { data, error } = await (supabase.from as any)('vw_cadastro_produto_setores')
+    .select('q_reserva, q_separacao, q_entrega_futura')
+    .eq('produto_id', produtoId)
+    .maybeSingle()
+  if (error) throw error
+  return {
+    q_reserva: Number(data?.q_reserva) || 0,
+    q_separacao: Number(data?.q_separacao) || 0,
+    q_entrega_futura: Number(data?.q_entrega_futura) || 0,
+  }
+}
+
 // SPEC-049: "Pedido de Compra em Trânsito" no card lateral de peça.
 // Lê vw_necessidade_compra_pedido_detalhe (SPEC-039, já em produção, já com
 // GRANT SELECT authenticated) — não cria view nova para esta parte. Compra

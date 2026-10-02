@@ -6,11 +6,12 @@ import { Plus, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
 // SPEC-174 N6b: mesma função usada em PecaDetailsPanel.tsx pra agrupar
 // estoque_itens por setor (local), reaproveitada aqui pra listar os setores
 // reais do produto em vez de só repetir as linhas cruas de getEstoqueItens.
-import { buildEstoquePorSetor, isSetorForaDoGeral } from '@/lib/estoque-sectors'
+import { buildSetoresObrigatorios, type SetoresSaldosProjeto } from '@/lib/estoque-sectors'
+// SPEC-174 N6c: mesma lista vertical dos 8 setores obrigatórios do painel.
+import { EstoqueSetoresList } from '@/components/pecas/EstoqueSetoresList'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +58,7 @@ import {
   getMarcas,
   getCategoriasProduto,
   getEstoqueItens,
+  getSetoresProduto,
   createMarca,
   createFornecedor,
 } from '@/services/produtos'
@@ -421,6 +423,8 @@ export function PecaForm({
   // fn_sync_estoque_itens_from_produtos zera essa linha). Guardado aqui só
   // pra exibição no bloco "Estoque Integrado", igual ao painel lateral.
   const [estoqueShowroomAtual, setEstoqueShowroomAtual] = useState<number>(0)
+  // SPEC-174 N6c: Reserva/Separação/Entrega Futura da peça (saldos por projeto).
+  const [setoresSaldosForm, setSetoresSaldosForm] = useState<SetoresSaldosProjeto | null>(null)
   const [marcaModalOpen, setMarcaModalOpen] = useState(false)
   const [fornecedorModalOpen, setFornecedorModalOpen] = useState(false)
   // SPEC-115: excluir peça saiu do painel rápido da listagem (clique
@@ -521,8 +525,15 @@ export function PecaForm({
       setCategorias(c)
     })
     if (pecaId) {
-      Promise.all([getProduto(pecaId), getEstoqueItens(pecaId)]).then(([data, estq]) => {
+      // SPEC-174 N6c: os saldos por projeto não podem travar o formulário se
+      // falharem -- caem em zeros.
+      Promise.all([
+        getProduto(pecaId),
+        getEstoqueItens(pecaId),
+        getSetoresProduto(pecaId).catch(() => null),
+      ]).then(([data, estq, saldos]) => {
         setEstoqueItens(estq || [])
+        setSetoresSaldosForm(saldos)
         setCodigoProdutoAtual((data as any).codigo_produto ?? null)
         setEstoqueShowroomAtual(Number((data as any).estoque_showroom) || 0)
         form.reset({
@@ -571,22 +582,17 @@ export function PecaForm({
       // após clicar "Copiar", como se já pertencesse ao produto novo.
       setEstoqueItens([])
       setEstoqueShowroomAtual(0)
+      setSetoresSaldosForm(null)
     }
   }, [pecaId, form])
 
-  // SPEC-174 N6b: o bloco "Estoque Integrado" mostrava uma tabela estreita
-  // com as linhas cruas de estoque_itens (sem o setor Showroom, que vive só
-  // em produtos.estoque_showroom -- ver comentário acima). Reaproveita o
-  // mesmo agrupamento por setor de PecaDetailsPanel.tsx e inclui o Showroom,
-  // listando todos os setores que o produto realmente tem nos dados.
-  const estoquePorSetorForm = useMemo(() => {
-    const outrosLocais = buildEstoquePorSetor(estoqueItens).filter((i) => i.local !== 'Showroom')
-    if (outrosLocais.length === 0 && estoqueShowroomAtual === 0) return []
-    return [
-      ...outrosLocais,
-      { local: 'Showroom', quantidade: estoqueShowroomAtual, quantidade_reservada: 0 },
-    ].sort((a, b) => b.quantidade - a.quantidade)
-  }, [estoqueItens, estoqueShowroomAtual])
+  // SPEC-174 N6b/N6c: "Estoque Integrado" na vertical com os 8 setores
+  // obrigatórios (sempre visíveis, mesmo zerados) + setores extras com saldo —
+  // mesma montagem do painel da peça selecionada (PecaDetailsPanel.tsx).
+  const setoresForm = useMemo(
+    () => buildSetoresObrigatorios(estoqueItens, estoqueShowroomAtual, setoresSaldosForm),
+    [estoqueItens, estoqueShowroomAtual, setoresSaldosForm],
+  )
 
   const handleMarcaCreated = useCallback(
     (marca: MarcaOption) => {
@@ -832,56 +838,16 @@ export function PecaForm({
             <h3 className="text-sm font-semibold border-b-2 border-slate-900 pb-1 mb-1.5">
               Estoque Integrado
             </h3>
-            {/* SPEC-174 N6b: lista vertical (um setor por bloco), em vez da
-                tabela de 3 colunas lado a lado (Setor | Atual | Reserv.) que
-                só mostrava as linhas cruas de estoque_itens -- sem Showroom
-                (setor próprio, fonte produtos.estoque_showroom) e sem
-                Disponível por setor. Mesma fonte de dados de
-                PecaDetailsPanel.tsx ("Estoque por Local"), só que aqui cada
-                setor ocupa sua própria linha, de cima a baixo. */}
-            <div className="border rounded-md flex-1 overflow-auto bg-slate-50 divide-y divide-slate-200">
-              {estoquePorSetorForm.length === 0 ? (
-                <p className="text-center text-xs text-slate-500 py-4">Salvar para ver estoque</p>
+            {/* SPEC-174 N6c: lista vertical com os 8 setores obrigatórios
+                (EstoqueSetoresList, igual ao painel da peça selecionada). Peça
+                nova ainda não tem estoque. */}
+            <div className="flex-1 overflow-auto">
+              {pecaId ? (
+                <EstoqueSetoresList setores={setoresForm} compact />
               ) : (
-                estoquePorSetorForm.map((s) => {
-                  const disponivel = s.quantidade - (s.quantidade_reservada || 0)
-                  // SPEC-174 N8: Casa Cor/Garantia ficam visíveis aqui, mas
-                  // fora do estoque geral/disponível do produto (decisão
-                  // "Setor separado", reunião de 01/10).
-                  const foraDoGeral = isSetorForaDoGeral(s.local)
-                  return (
-                    <div key={s.local} className="px-2 py-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-slate-700 truncate flex items-center gap-1">
-                          {s.local}
-                          {foraDoGeral && (
-                            <span className="text-[8px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                              fora do disponível
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-900 shrink-0">
-                          {s.quantidade}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 mt-0.5">
-                        <span>Reservado: {s.quantidade_reservada || 0}</span>
-                        <span
-                          className={cn(
-                            'font-medium',
-                            disponivel > 0
-                              ? 'text-emerald-600'
-                              : disponivel < 0
-                                ? 'text-destructive'
-                                : 'text-slate-400',
-                          )}
-                        >
-                          Disponível: {disponivel}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })
+                <p className="text-center text-xs text-slate-500 py-4 border rounded-md bg-slate-50">
+                  Salvar para ver estoque
+                </p>
               )}
             </div>
             {/* SPEC-174 N6a: Excluir/Copiar/Salvar não cabiam numa linha só

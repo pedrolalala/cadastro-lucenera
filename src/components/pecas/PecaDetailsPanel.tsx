@@ -8,7 +8,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableFooter,
 } from '@/components/ui/table'
 import {
   Box,
@@ -25,13 +24,20 @@ import {
 import {
   getEstoqueItens,
   getReservasProduto,
+  getSetoresProduto,
   getPedidosCompraEmTransito,
   getFornecedorSugeridoProduto,
   type ReservaProdutoRow,
   type PedidoCompraEmTransitoRow,
   type FornecedorSugeridoProdutoRow,
 } from '@/services/produtos'
-import { buildEstoquePorSetor, isSetorForaDoGeral } from '@/lib/estoque-sectors'
+import {
+  buildEstoquePorSetor,
+  buildSetoresObrigatorios,
+  isSetorForaDoGeral,
+  type SetoresSaldosProjeto,
+} from '@/lib/estoque-sectors'
+import { EstoqueSetoresList } from '@/components/pecas/EstoqueSetoresList'
 import { cn } from '@/lib/utils'
 
 // SPEC-049: mesmo dicionário de rótulos de status de pedido de compra usado em
@@ -90,6 +96,8 @@ export function PecaDetailsPanel({
   const [estoqueData, setEstoqueData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [reservasData, setReservasData] = useState<ReservaProdutoRow[]>([])
+  // SPEC-174 N6c: Reserva/Separação/Entrega Futura somadas por peça.
+  const [setoresSaldos, setSetoresSaldos] = useState<SetoresSaldosProjeto | null>(null)
   const [loadingReservas, setLoadingReservas] = useState(false)
   const [pedidosData, setPedidosData] = useState<PedidoCompraEmTransitoRow[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
@@ -113,6 +121,25 @@ export function PecaDetailsPanel({
         if (!cancelled) setEstoqueData([])
       } finally {
         if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [peca])
+
+  useEffect(() => {
+    if (!peca) {
+      setSetoresSaldos(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const saldos = await getSetoresProduto(peca.id)
+        if (!cancelled) setSetoresSaldos(saldos)
+      } catch {
+        if (!cancelled) setSetoresSaldos(null)
       }
     })()
     return () => {
@@ -210,14 +237,6 @@ export function PecaDetailsPanel({
   // disponível -- decisão "Setor separado" da reunião de 01/10.
   const estoquePorSetorGeral = estoquePorSetor.filter((i) => !isSetorForaDoGeral(i.local))
   const totalGeral = estoquePorSetorGeral.reduce((s, i) => s + i.quantidade, 0)
-  // Comprometido total (reserva + entrega futura) por local — usado só na
-  // tabela "Estoque por Local" abaixo, que é uma distribuição física por
-  // depósito (estoque_itens não distingue setor de reserva por local).
-  const totalComprometido = estoquePorSetorGeral.reduce(
-    (s, i) => s + (i.quantidade_reservada || 0),
-    0,
-  )
-  const totalDisponivelPorLocal = totalGeral - totalComprometido
   // SPEC-101: os badges do cabeçalho ("Reservado"/"Disponível") são a métrica
   // agregada de negócio, não por local — "Reservado" tem que ser só o que
   // está no setor Reserva, não o comprometido inteiro (reserva + entrega
@@ -227,6 +246,12 @@ export function PecaDetailsPanel({
   // Cliente/Projeto" abaixo), somando só q_reserva por projeto_item_id.
   const totalReservado = reservasData.reduce((s, r) => s + (r.q_reserva || 0), 0)
   const totalDisponivel = totalGeral - totalReservado
+
+  // SPEC-174 N6c: os 8 setores obrigatórios, sempre visíveis, na vertical.
+  const setoresObrigatorios = useMemo(
+    () => buildSetoresObrigatorios(estoqueData, estoqueShowroom, setoresSaldos),
+    [estoqueData, estoqueShowroom, setoresSaldos],
+  )
 
   const hasReservas = reservasData.length > 0
   const hasPedidos = pedidosData.length > 0
@@ -329,117 +354,21 @@ export function PecaDetailsPanel({
             </div>
           )}
         </div>
+        {/* SPEC-174 N6c (pedido de 02/10): estoque da peça na vertical, um setor
+            por linha; os 8 setores obrigatórios aparecem sempre, mesmo zerados.
+            Substitui a antiga tabela "Local / Qtd. Estoque / Disponível" — os
+            totais de negócio continuam nos badges do cabeçalho acima. */}
         {loading ? (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <StockHead>Local</StockHead>
-                  <StockHead right>Qtd. Estoque</StockHead>
-                  <StockHead right>Disponível</StockHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="py-2.5 px-2">
-                      <Skeleton className="h-4 w-20 bg-slate-200" />
-                    </TableCell>
-                    <TableCell className="py-2.5 px-2">
-                      <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
-                    </TableCell>
-                    <TableCell className="py-2.5 px-2">
-                      <Skeleton className="h-4 w-6 ml-auto bg-slate-200" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : !hasStockRecords ? (
-          <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
-            <p className="text-sm text-slate-500 text-center">
-              Produto sem movimentação de estoque (Saldo Zero)
-            </p>
+          <div className="border rounded-lg bg-slate-50 divide-y divide-slate-200">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-2">
+                <Skeleton className="h-4 w-28 bg-slate-200" />
+                <Skeleton className="h-4 w-6 bg-slate-200" />
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <StockHead>Local</StockHead>
-                  <StockHead right>Qtd. Estoque</StockHead>
-                  <StockHead right>Disponível</StockHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {estoquePorSetor.map((i) => {
-                  const disponivelLocal = i.quantidade - (i.quantidade_reservada || 0)
-                  const foraDoGeral = isSetorForaDoGeral(i.local)
-                  return (
-                    <TableRow key={i.local} className="h-10 hover:bg-slate-100/50">
-                      <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[180px]">
-                        {i.local}
-                        {/* SPEC-174 N8: Casa Cor/Garantia ficam visíveis mas
-                            fora do estoque geral/disponível do produto. */}
-                        {foraDoGeral && (
-                          <span className="ml-1.5 inline-block text-[9px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 align-middle">
-                            fora do disponível
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-right">
-                        <span
-                          className={cn(
-                            'font-medium px-1.5 py-0.5 rounded-full',
-                            i.quantidade > 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
-                          )}
-                        >
-                          {i.quantidade}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-right">
-                        <span
-                          className={cn(
-                            'font-medium px-1.5 py-0.5 rounded-full',
-                            disponivelLocal > 0
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : disponivelLocal < 0
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'text-slate-500',
-                          )}
-                        >
-                          {disponivelLocal}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-              <TableFooter className="bg-slate-100/80 border-t border-slate-200">
-                <TableRow className="h-10">
-                  <TableCell className="py-2 px-2 text-xs font-bold text-slate-700">
-                    Resumo Final
-                  </TableCell>
-                  <TableCell className="py-2 px-2 text-xs text-right font-semibold text-slate-600">
-                    {totalGeral}
-                  </TableCell>
-                  <TableCell className="py-2 px-2 text-right">
-                    <span
-                      className={cn(
-                        'text-xs font-bold px-2 py-1 rounded-full',
-                        totalDisponivelPorLocal > 0
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-slate-300 text-slate-600',
-                      )}
-                    >
-                      {totalDisponivelPorLocal}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
-          </div>
+          <EstoqueSetoresList setores={setoresObrigatorios} />
         )}
       </div>
 
