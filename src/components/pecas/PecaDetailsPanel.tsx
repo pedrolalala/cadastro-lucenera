@@ -1,33 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Box,
-  Edit,
-  Tag,
-  Layers,
-  DollarSign,
-  Hash,
-  FileText,
-  Users,
-  Truck,
-  Building2,
-} from 'lucide-react'
+import { Box, Edit, Building2 } from 'lucide-react'
 import {
   getEstoqueItens,
-  getReservasProduto,
   getSetoresProduto,
+  getMovimentosProduto,
   getPedidosCompraEmTransito,
   getFornecedorSugeridoProduto,
-  type ReservaProdutoRow,
+  type MovimentoProdutoRow,
   type PedidoCompraEmTransitoRow,
   type FornecedorSugeridoProdutoRow,
 } from '@/services/produtos'
@@ -37,27 +18,8 @@ import {
   isSetorForaDoGeral,
   type SetoresSaldosProjeto,
 } from '@/lib/estoque-sectors'
-import { EstoqueSetoresList } from '@/components/pecas/EstoqueSetoresList'
+import { PecaAbasSetores } from '@/components/pecas/PecaAbasSetores'
 import { cn } from '@/lib/utils'
-
-// SPEC-049: mesmo dicionário de rótulos de status de pedido de compra usado em
-// compras-lucenera-3o23t98ee/src/services/necessidade-compra.ts
-// (STATUS_PEDIDO_COMPRA_LABEL). Duplicado aqui porque não há import
-// cross-repo entre os dois sistemas — manter os mesmos textos nos dois.
-const STATUS_PEDIDO_COMPRA_LABEL: Record<string, string> = {
-  rascunho: 'Pendente',
-  aprovado: 'Aprovado',
-  enviado: 'Pedido Emitido',
-  parcialmente_recebido: 'Em Trânsito',
-  recebido: 'Recebido',
-  cancelado: 'Cancelado',
-}
-
-const formatStatusPedidoCompra = (status: string | null | undefined) =>
-  status ? (STATUS_PEDIDO_COMPRA_LABEL[status] ?? status) : '-'
-
-const formatDate = (v: string | null | undefined) =>
-  v ? new Date(v).toLocaleDateString('pt-BR') : '-'
 
 const formatCurrency = (v: number | null | undefined) =>
   v == null
@@ -95,10 +57,12 @@ export function PecaDetailsPanel({
 }) {
   const [estoqueData, setEstoqueData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [reservasData, setReservasData] = useState<ReservaProdutoRow[]>([])
+  // SPEC-182 (C2): itens de venda com a peça por setor (abas Reserva/Entrega
+  // Futura/Separação/Entregue) — substitui "Reservado por Cliente/Projeto".
+  const [movimentos, setMovimentos] = useState<MovimentoProdutoRow[]>([])
   // SPEC-174 N6c: Reserva/Separação/Entrega Futura somadas por peça.
   const [setoresSaldos, setSetoresSaldos] = useState<SetoresSaldosProjeto | null>(null)
-  const [loadingReservas, setLoadingReservas] = useState(false)
+  const [loadingMovimentos, setLoadingMovimentos] = useState(false)
   const [pedidosData, setPedidosData] = useState<PedidoCompraEmTransitoRow[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
   const [fornecedorSugerido, setFornecedorSugerido] = useState<FornecedorSugeridoProdutoRow | null>(
@@ -147,23 +111,23 @@ export function PecaDetailsPanel({
     }
   }, [peca])
 
-  // SPEC-049: reserva por cliente/projeto/equipe e pedido de compra em
-  // trânsito, somente leitura, carregados em paralelo à seção de estoque.
+  // SPEC-049 / SPEC-182 (C2): vendas da peça por setor e pedidos de compra
+  // ativos, somente leitura, carregados em paralelo à seção de estoque.
   useEffect(() => {
     if (!peca) {
-      setReservasData([])
+      setMovimentos([])
       return
     }
     let cancelled = false
-    setLoadingReservas(true)
+    setLoadingMovimentos(true)
     ;(async () => {
       try {
-        const rows = await getReservasProduto(peca.id)
-        if (!cancelled) setReservasData(rows || [])
+        const rows = await getMovimentosProduto(peca.id)
+        if (!cancelled) setMovimentos(rows || [])
       } catch {
-        if (!cancelled) setReservasData([])
+        if (!cancelled) setMovimentos([])
       } finally {
-        if (!cancelled) setLoadingReservas(false)
+        if (!cancelled) setLoadingMovimentos(false)
       }
     })()
     return () => {
@@ -242,28 +206,35 @@ export function PecaDetailsPanel({
   // está no setor Reserva, não o comprometido inteiro (reserva + entrega
   // futura). estoque_itens.quantidade_reservada mistura os dois por desenho
   // (é usada por outras RPCs com esse significado) — a métrica certa vem de
-  // vw_cadastro_produto_reserva_detalhe (mesma fonte da tabela "Reservado por
-  // Cliente/Projeto" abaixo), somando só q_reserva por projeto_item_id.
-  const totalReservado = reservasData.reduce((s, r) => s + (r.q_reserva || 0), 0)
+  // vw_cadastro_produto_setores (soma de q_reserva por projeto_item_id).
+  const totalReservado = Number(setoresSaldos?.q_reserva) || 0
   const totalDisponivel = totalGeral - totalReservado
 
-  // SPEC-174 N6c: os 8 setores obrigatórios, sempre visíveis, na vertical.
-  const setoresObrigatorios = useMemo(
-    () => buildSetoresObrigatorios(estoqueData, estoqueShowroom, setoresSaldos),
-    [estoqueData, estoqueShowroom, setoresSaldos],
-  )
+  // SPEC-174 N6c: os 8 setores obrigatórios, sempre visíveis. SPEC-182 (C2):
+  // mais "Entregue" (o que ainda está com o cliente: entregue − devolvido),
+  // logo depois de Entrega Futura, na aba consolidada "Setores".
+  const setores = useMemo(() => {
+    const base = buildSetoresObrigatorios(estoqueData, estoqueShowroom, setoresSaldos)
+    const entregue = movimentos.reduce(
+      (soma, m) => soma + Math.max(0, m.q_entregue - m.q_devolvida_entregue),
+      0,
+    )
+    const i = base.findIndex((x) => x.local === 'Entrega Futura')
+    const linha = { local: 'Entregue', quantidade: entregue, extra: false }
+    return i >= 0 ? [...base.slice(0, i + 1), linha, ...base.slice(i + 1)] : [...base, linha]
+  }, [estoqueData, estoqueShowroom, setoresSaldos, movimentos])
 
-  const hasReservas = reservasData.length > 0
-  const hasPedidos = pedidosData.length > 0
   const hasFornecedorSugerido = (fornecedorSugerido?.pendente ?? 0) > 0
 
   if (!peca) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto flex-1">
-        <div className="p-8 text-center flex flex-col items-center justify-center text-slate-500 min-h-[400px]">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="p-8 text-center flex flex-col items-center justify-center text-slate-500 min-h-[160px]">
           <Box className="w-12 h-12 mb-4 text-slate-200" />
           <h3 className="font-medium text-slate-900 mb-1">Nenhuma peça selecionada</h3>
-          <p className="text-sm">Clique em uma peça na lista para ver seus detalhes e estoque.</p>
+          <p className="text-sm">
+            Clique em uma peça na lista para ver o estoque por setor, as vendas e as compras dela.
+          </p>
         </div>
       </div>
     )
@@ -271,347 +242,140 @@ export function PecaDetailsPanel({
 
   const codigoDisplay = peca.codigo_produto ?? peca.codigo_legado ?? '-'
 
+  // SPEC-182 (C2): cabeçalho fixo no modelo do Connect — Código, Referência,
+  // Descrição, Valor de Venda e Disponível em destaque (negativo em vermelho).
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto flex-1 min-w-0">
-      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-slate-900 leading-tight break-words break-all">
-              {peca.nome}
-            </h3>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="text-xs font-medium text-slate-700">
-                {formatCurrency(peca.valor_venda || peca.preco_venda)}
-              </span>
-              <span
-                className={cn(
-                  'text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase',
-                  peca.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600',
-                )}
-              >
-                {peca.ativo ? 'Ativo' : 'Inativo'}
-              </span>
-            </div>
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm min-w-0">
+      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 rounded-t-xl">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+          <div className="grid flex-1 min-w-0 grid-cols-2 md:grid-cols-[110px_160px_1fr_140px] gap-x-4 gap-y-3">
+            <Campo rotulo="Código" valor={String(codigoDisplay)} mono />
+            <Campo rotulo="Referência" valor={peca.referencia || peca.sku || '-'} mono />
+            <Campo
+              rotulo="Descrição"
+              valor={peca.nome}
+              className="col-span-2 md:col-span-1"
+              extra={
+                <span className="text-[11px] text-slate-500">
+                  {peca.marca_nome || 'Marca não informada'} · {peca.categoria || 'Sem categoria'}
+                  <span
+                    className={cn(
+                      'ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase',
+                      peca.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600',
+                    )}
+                  >
+                    {peca.ativo ? 'Ativo' : 'Inativo'}
+                  </span>
+                </span>
+              }
+            />
+            <Campo
+              rotulo="Valor de Venda"
+              valor={formatCurrency(peca.valor_venda || peca.preco_venda)}
+            />
           </div>
-          {/* SPEC-115: "Excluir" saiu do painel rápido — um clique acidental
-              aqui apagava o cadastro direto. Fica só dentro da edição
-              completa (PecaForm.tsx) agora. "Editar" continua aqui, já
-              aceito pelo usuário — ele já leva pro cadastro completo. */}
-          {/* SPEC-174 N7: sem a ação "editar" no Cadastro, o botão nem
-              aparece -- consulta de produto continua liberada pra todo
-              mundo com acesso ao sistema. */}
-          {canEdit && (
-            <div className="flex flex-col gap-2 shrink-0">
+          <div className="flex items-end gap-3 shrink-0">
+            <div
+              className={cn(
+                'rounded-lg border-2 px-4 py-2 text-center min-w-[120px]',
+                loading
+                  ? 'border-slate-200 bg-white'
+                  : totalDisponivel < 0
+                    ? 'border-red-300 bg-red-50'
+                    : totalDisponivel > 0
+                      ? 'border-emerald-300 bg-emerald-50'
+                      : 'border-slate-300 bg-white',
+              )}
+              title="Estoque geral menos o reservado"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                Disponível
+              </p>
+              {loading ? (
+                <Skeleton className="h-7 w-10 mx-auto bg-slate-200" />
+              ) : (
+                <p
+                  className={cn(
+                    'text-2xl font-bold tabular-nums leading-tight',
+                    totalDisponivel < 0
+                      ? 'text-destructive'
+                      : totalDisponivel > 0
+                        ? 'text-emerald-700'
+                        : 'text-slate-500',
+                  )}
+                >
+                  {totalDisponivel}
+                </p>
+              )}
+            </div>
+            {/* SPEC-115: "Excluir" fica só na edição completa. SPEC-174 N7: sem a
+                ação "editar" no Cadastro, o botão nem aparece. */}
+            {canEdit && (
               <Button
                 size="sm"
-                className="bg-slate-900 hover:bg-slate-800 text-white h-8 text-xs w-full"
+                className="bg-slate-900 hover:bg-slate-800 text-white h-9 text-xs"
                 onClick={onEdit}
               >
                 <Edit className="h-3 w-3 mr-1.5" />
                 Editar
               </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="p-4 sm:p-5 space-y-3">
-        <div className="grid grid-cols-1 gap-2">
-          <DetailRow icon={Hash} label="Código" value={String(codigoDisplay)} mono />
-          <DetailRow
-            icon={FileText}
-            label="Referência"
-            value={peca.referencia || peca.sku || '-'}
-            mono
-          />
-          <DetailRow icon={Tag} label="Marca" value={peca.marca_nome || 'Não informada'} />
-          <DetailRow icon={Layers} label="Categoria" value={peca.categoria || 'Sem categoria'} />
-          <DetailRow
-            icon={DollarSign}
-            label="Preço de Venda"
-            value={formatCurrency(peca.valor_venda || peca.preco_venda)}
-          />
-        </div>
-      </div>
-
-      <div className="px-4 sm:px-5 pb-5 flex-1 flex flex-col">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h4 className="text-sm font-semibold flex items-center text-slate-700">
-            <Box className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
-            Estoque por Local
-          </h4>
-          {hasStockRecords && (
-            <div className="flex gap-1.5 flex-wrap">
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                Total: {totalGeral}
-              </span>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                Reservado: {totalReservado}
-              </span>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                Disponível: {totalDisponivel}
-              </span>
-            </div>
-          )}
-        </div>
-        {/* SPEC-174 N6c (pedido de 02/10): estoque da peça na vertical, um setor
-            por linha; os 8 setores obrigatórios aparecem sempre, mesmo zerados.
-            Substitui a antiga tabela "Local / Qtd. Estoque / Disponível" — os
-            totais de negócio continuam nos badges do cabeçalho acima. */}
-        {loading ? (
-          <div className="border rounded-lg bg-slate-50 divide-y divide-slate-200">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between px-3 py-2">
-                <Skeleton className="h-4 w-28 bg-slate-200" />
-                <Skeleton className="h-4 w-6 bg-slate-200" />
-              </div>
-            ))}
+            )}
           </div>
-        ) : (
-          <EstoqueSetoresList setores={setoresObrigatorios} />
-        )}
-      </div>
-
-      {/* SPEC-049: Reservado por Cliente/Projeto */}
-      <div className="px-4 sm:px-5 pb-5 flex-1 flex flex-col">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h4 className="text-sm font-semibold flex items-center text-slate-700">
-            <Users className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
-            Reservado por Cliente/Projeto
-          </h4>
         </div>
-        {loadingReservas ? (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <StockHead>Projeto</StockHead>
-                  <StockHead>Cliente</StockHead>
-                  <StockHead>Equipe</StockHead>
-                  <StockHead right>Qtd. Vendida</StockHead>
-                  <StockHead right>Reservado</StockHead>
-                  <StockHead right>Aguardando Compra</StockHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((__, j) => (
-                      <TableCell key={j} className="py-2.5 px-2">
-                        <Skeleton className="h-4 w-full bg-slate-200" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : !hasReservas ? (
-          <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
-            <p className="text-sm text-slate-500 text-center">
-              Nenhuma reserva ativa para esta peça.
-            </p>
-          </div>
-        ) : (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <StockHead>Projeto</StockHead>
-                  <StockHead>Cliente</StockHead>
-                  <StockHead>Equipe</StockHead>
-                  <StockHead right>Qtd. Vendida</StockHead>
-                  <StockHead right>Reservado</StockHead>
-                  <StockHead right>Aguardando Compra</StockHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reservasData.map((r) => (
-                  <TableRow key={r.projeto_item_id} className="h-10 hover:bg-slate-100/50">
-                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[160px]">
-                      {r.projeto_codigo || '-'}
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[190px]">
-                      {r.cliente_nome || '-'}
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[160px]">
-                      {r.equipe_nome || '-'}
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-right">
-                      <span className="font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                        {r.q_venda}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-right">
-                      <span
-                        className={cn(
-                          'font-medium px-1.5 py-0.5 rounded-full',
-                          r.q_reserva > 0 ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400',
-                        )}
-                      >
-                        {r.q_reserva}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-right">
-                      <span
-                        className={cn(
-                          'font-medium px-1.5 py-0.5 rounded-full',
-                          r.q_entrega_futura > 0 ? 'bg-amber-100 text-amber-700' : 'text-slate-400',
-                        )}
-                      >
-                        {r.q_entrega_futura}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        {/* SPEC-049 (seção adicional): Fornecedor Sugerido — só aparece se houver
+            quantidade pendente sugerida para compra (vw_necessidade_compra). */}
+        {!loadingFornecedorSugerido && hasFornecedorSugerido && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <Building2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>
+              <span className="font-medium">Fornecedor Sugerido:</span>{' '}
+              {fornecedorSugerido?.fornecedor_nome || '-'} ·{' '}
+              <span className="font-medium">Pendente:</span> {fornecedorSugerido?.pendente}
+            </span>
           </div>
         )}
       </div>
 
-      {/* SPEC-049 (seção adicional): Fornecedor Sugerido — independente da
-          seção "Pedido de Compra em Trânsito" abaixo; só aparece se houver
-          quantidade pendente sugerida para compra (vw_necessidade_compra). */}
-      {loadingFornecedorSugerido ? (
-        <div className="px-4 sm:px-5 pb-3">
-          <Skeleton className="h-4 w-2/3 bg-slate-200" />
-        </div>
-      ) : (
-        hasFornecedorSugerido && (
-          <div className="px-4 sm:px-5 pb-3">
-            <div className="flex items-center gap-2 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              <Building2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>
-                <span className="font-medium">Fornecedor Sugerido:</span>{' '}
-                {fornecedorSugerido?.fornecedor_nome || '-'} ·{' '}
-                <span className="font-medium">Pendente:</span> {fornecedorSugerido?.pendente}
-              </span>
-            </div>
-          </div>
-        )
-      )}
-
-      {/* SPEC-049: Pedido de Compra em Trânsito */}
-      <div className="px-4 sm:px-5 pb-5 flex-1 flex flex-col">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h4 className="text-sm font-semibold flex items-center text-slate-700">
-            <Truck className="w-4 h-4 mr-2 text-slate-400 shrink-0" />
-            Pedido de Compra em Trânsito
-          </h4>
-        </div>
-        {loadingPedidos ? (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <StockHead>Nº Pedido</StockHead>
-                  <StockHead>Status</StockHead>
-                  <StockHead>Empresa</StockHead>
-                  <StockHead>Previsão de Chegada</StockHead>
-                  <StockHead right>Qtd. Pendente</StockHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((__, j) => (
-                      <TableCell key={j} className="py-2.5 px-2">
-                        <Skeleton className="h-4 w-full bg-slate-200" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : !hasPedidos ? (
-          <div className="border rounded-lg bg-slate-50 flex-1 flex items-center justify-center p-8">
-            <p className="text-sm text-slate-500 text-center">
-              Nenhum pedido de compra em trânsito para esta peça.
-            </p>
-          </div>
-        ) : (
-          <div className="border rounded-lg overflow-hidden bg-slate-50 flex-1 min-w-0">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <StockHead>Nº Pedido</StockHead>
-                  <StockHead>Status</StockHead>
-                  <StockHead>Empresa</StockHead>
-                  <StockHead>Previsão de Chegada</StockHead>
-                  <StockHead right>Qtd. Pendente</StockHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pedidosData.map((p) => (
-                  <TableRow key={p.pedido_id} className="h-10 hover:bg-slate-100/50">
-                    <TableCell className="py-2 px-2 text-xs font-medium text-slate-700 break-words max-w-[160px]">
-                      {p.numero || '-'}
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs">
-                      <span className="font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 whitespace-nowrap">
-                        {formatStatusPedidoCompra(p.status)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 break-words max-w-[190px]">
-                      {p.empresa_nome || '-'}
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-slate-700 whitespace-nowrap">
-                      {formatDate(p.data_prevista_entrega)}
-                    </TableCell>
-                    <TableCell className="py-2 px-2 text-xs text-right">
-                      <span className="font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                        {p.qtd_pendente}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+      <div className="p-4 sm:p-5">
+        <PecaAbasSetores
+          pecaId={peca.id}
+          setores={setores}
+          carregandoSetores={loading}
+          movimentos={movimentos}
+          carregandoMovimentos={loadingMovimentos}
+          pedidos={pedidosData}
+          carregandoPedidos={loadingPedidos}
+        />
       </div>
     </div>
   )
 }
 
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
+function Campo({
+  rotulo,
+  valor,
   mono,
+  className,
+  extra,
 }: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value: string
+  rotulo: string
+  valor: string
   mono?: boolean
+  className?: string
+  extra?: React.ReactNode
 }) {
   return (
-    <div className="flex items-start gap-2 text-sm min-w-0">
-      <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
-      <span className="text-slate-500 shrink-0 min-w-[90px]">{label}:</span>
-      <span
+    <div className={cn('min-w-0', className)}>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{rotulo}</p>
+      <p
         className={cn(
-          'font-medium text-slate-800 break-words break-all min-w-0',
-          mono && 'font-mono text-xs',
+          'font-semibold text-slate-900 break-words',
+          mono ? 'font-mono text-sm' : 'text-sm',
         )}
       >
-        {value}
-      </span>
+        {valor}
+      </p>
+      {extra}
     </div>
-  )
-}
-
-function StockHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <TableHead
-      className={cn(
-        'h-9 py-2 px-2 text-[11px] text-slate-600 whitespace-nowrap',
-        right && 'text-right',
-      )}
-    >
-      {children}
-    </TableHead>
   )
 }

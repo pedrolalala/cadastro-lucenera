@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -142,7 +142,14 @@ export default function Pecas() {
       })
   }, [toast])
 
+  // SPEC-182 (C1): a carga sem filtro (todas as peças, em lotes) demora alguns
+  // segundos; se a pessoa buscar nesse meio tempo, a carga antiga terminava
+  // depois e sobrescrevia o resultado da busca ("a pesquisa some sozinha").
+  // Só a chamada mais recente grava na tela.
+  const cargaAtual = useRef(0)
+
   const loadProdutos = useCallback(async () => {
+    const minhaCarga = ++cargaAtual.current
     setLoading(true)
     setProgress({ loaded: 0, total: null })
     try {
@@ -153,13 +160,17 @@ export default function Pecas() {
           categoriaId: categoriaId || undefined,
         },
         500,
-        (loaded, total) => setProgress({ loaded, total }),
+        (loaded, total) => {
+          if (minhaCarga === cargaAtual.current) setProgress({ loaded, total })
+        },
       )
+      if (minhaCarga !== cargaAtual.current) return
       setProdutos(data)
     } catch {
+      if (minhaCarga !== cargaAtual.current) return
       toast({ title: 'Erro', description: 'Falha ao carregar as peças.', variant: 'destructive' })
     } finally {
-      setLoading(false)
+      if (minhaCarga === cargaAtual.current) setLoading(false)
     }
   }, [debouncedSearch, marcaId, categoriaId, toast])
 
@@ -227,7 +238,7 @@ export default function Pecas() {
   }
 
   return (
-    <div className="flex flex-col space-y-4 w-full pb-20 lg:pb-0 xl:h-[calc(100vh-130px)] animate-fade-in-up">
+    <div className="flex flex-col space-y-4 w-full pb-20 lg:pb-0 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
@@ -250,8 +261,11 @@ export default function Pecas() {
         )}
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
-        <div className="w-full xl:flex-1 flex flex-col gap-3 min-w-0 min-h-0">
+      {/* SPEC-182 (C2, decisão 06/10): a peça selecionada abre numa área larga
+          ABAIXO da lista (cabeçalho + abas por setor, modelo do Connect), no
+          lugar do antigo card lateral. */}
+      <div className="flex flex-col gap-4">
+        <div className="w-full flex flex-col gap-3 min-w-0">
           <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm shrink-0">
             <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -295,7 +309,7 @@ export default function Pecas() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col min-h-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm h-[46vh] min-h-[320px] overflow-hidden flex flex-col">
             <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100 shrink-0">
               {loading
                 ? `Carregando... ${progress.loaded}${progress.total ? `/${progress.total}` : ''} peças`
@@ -488,7 +502,7 @@ export default function Pecas() {
           </div>
         </div>
 
-        <div className="w-full xl:w-[440px] 2xl:w-[520px] shrink-0 flex flex-col xl:overflow-hidden xl:h-full">
+        <div className="w-full">
           {/* SPEC-115: onDelete removido — excluir peça agora só é possível
               dentro da edição completa (PecaForm.tsx via PecaModal). */}
           <PecaDetailsPanel

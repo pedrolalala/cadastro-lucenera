@@ -219,6 +219,47 @@ export async function getSetoresProduto(
   }
 }
 
+// SPEC-182 (C2): uma linha por item de venda com a quantidade da peça em cada
+// setor e os dados da venda (vw_cadastro_produto_movimentos, migration
+// 20261006_185) — alimenta as abas Reserva / Entrega Futura / Separação /
+// Entregue da consulta de peça.
+export interface MovimentoProdutoRow {
+  produto_id: string
+  projeto_item_id: string
+  orcamento_id: string | null
+  orcamento_numero: string | null
+  venda_numero: string | null
+  funcionario_nome: string | null
+  cliente_nome: string | null
+  projeto_codigo: string | null
+  l_fixo: string | null
+  data_orcamento: string | null
+  data_entrega: string | null
+  valor_total_orcamento: number | null
+  q_reserva: number
+  q_entrega_futura: number
+  q_separacao: number
+  q_entregue: number
+  q_devolvida_entregue: number
+}
+
+export async function getMovimentosProduto(produtoId: string): Promise<MovimentoProdutoRow[]> {
+  const { data, error } = await (supabase.from as any)('vw_cadastro_produto_movimentos')
+    .select('*')
+    .eq('produto_id', produtoId)
+    .order('data_orcamento', { ascending: false })
+  if (error) throw error
+  return ((data || []) as any[]).map((r) => ({
+    ...r,
+    valor_total_orcamento: r.valor_total_orcamento == null ? null : Number(r.valor_total_orcamento),
+    q_reserva: Number(r.q_reserva) || 0,
+    q_entrega_futura: Number(r.q_entrega_futura) || 0,
+    q_separacao: Number(r.q_separacao) || 0,
+    q_entregue: Number(r.q_entregue) || 0,
+    q_devolvida_entregue: Number(r.q_devolvida_entregue) || 0,
+  }))
+}
+
 // SPEC-049: "Pedido de Compra em Trânsito" no card lateral de peça.
 // Lê vw_necessidade_compra_pedido_detalhe (SPEC-039, já em produção, já com
 // GRANT SELECT authenticated) — não cria view nova para esta parte. Compra
@@ -232,6 +273,9 @@ export interface PedidoCompraEmTransitoRow {
   empresa_nome: string | null
   data_prevista_entrega: string | null
   qtd_pendente: number
+  // SPEC-182 (C2): aba Compras no modelo do Connect.
+  data_emissao: string | null
+  perfil: string | null
 }
 
 export async function getPedidosCompraEmTransito(
