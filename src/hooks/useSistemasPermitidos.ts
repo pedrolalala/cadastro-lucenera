@@ -57,7 +57,7 @@ export function useSistemasPermitidos(currentSlug: string) {
     async function load() {
       setLoading(true)
 
-      // SPEC-123 item 3: cache compartilhado com use-auth.tsx (quando aplicável) —
+      // SPEC-123: cache compartilhado com use-auth.tsx (quando aplicável) —
       // evita duplicar esta mesma query de rede a cada carregamento.
       const role = await getUsuarioRoleCached(userId)
 

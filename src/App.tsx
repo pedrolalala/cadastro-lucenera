@@ -1,13 +1,23 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Layout from './components/Layout'
-import Pecas from './pages/Pecas'
-import NotFound from './pages/NotFound'
 import { DataProvider } from './stores/use-data-store'
 import { AuthProvider, useAuth } from './hooks/use-auth'
-import Login from './pages/Login'
+
+// SPEC-123: code-splitting por rota (mesmo padrão já em produção no RH,
+// dashboard-rh-lucenera-5fe9c/src/App.tsx).
+const Pecas = lazy(() => import('./pages/Pecas'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const Login = lazy(() => import('./pages/Login'))
+
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+)
 
 const ProtectedRoutes = () => {
   const { user, hasAccess, loading } = useAuth()
@@ -19,8 +29,6 @@ const ProtectedRoutes = () => {
       </div>
     )
   }
-
-  if (!user) return <Login />
 
   if (hasAccess === false) {
     return (
@@ -36,18 +44,24 @@ const ProtectedRoutes = () => {
     )
   }
 
+  // Suspense precisa envolver TODO caminho que pode renderizar um
+  // componente lazy — <Login /> incluso, não só a árvore de <Routes>.
   return (
-    <>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/pecas" replace />} />
-          <Route path="/projetos" element={<Navigate to="/pecas" replace />} />
-          <Route path="/clientes" element={<Navigate to="/pecas" replace />} />
-          <Route path="/pecas" element={<Pecas />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
+    <Suspense fallback={<LoadingFallback />}>
+      {!user ? (
+        <Login />
+      ) : (
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Navigate to="/pecas" replace />} />
+            <Route path="/projetos" element={<Navigate to="/pecas" replace />} />
+            <Route path="/clientes" element={<Navigate to="/pecas" replace />} />
+            <Route path="/pecas" element={<Pecas />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      )}
+    </Suspense>
   )
 }
 

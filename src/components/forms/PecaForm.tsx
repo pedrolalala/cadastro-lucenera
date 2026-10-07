@@ -543,6 +543,13 @@ export function PecaForm({
           porc_frete: (data as any).porc_frete || 0,
           porc_bdi: (data as any).porc_bdi || 0,
           porc_st: (data as any).porc_st || 0,
+          // Produtos vindos só do import do Connect não têm `preco_custo`/
+          // `preco_venda` — o custo real fica em `custo_total` e a venda em
+          // `valor_venda` (o import não mexe nesses dois pra não disparar o
+          // trigger). Sem esse fallback o campo "Preço Custo" abria em branco
+          // na edição. Mesmo padrão que `valor_venda` já usava.
+          preco_custo: (data as any).preco_custo || (data as any).custo_total || 0,
+          preco_venda: (data as any).preco_venda || (data as any).valor_venda || 0,
           valor_venda: (data as any).valor_venda || (data as any).preco_venda || 0,
           // Bug achado em QA (2026-08-25): campos string opcionais no schema
           // usam z.string().optional(), que só aceita undefined — quando a
@@ -857,9 +864,6 @@ export function PecaForm({
                 sempre dividem a linha de baixo em duas metades (flex-1),
                 cabendo inteiros mesmo com a coluna mais estreita (N6b). */}
             <div className="pt-2 flex flex-col gap-2 mt-auto">
-              {/* SPEC-174 N7: Excluir/Copiar só aparecem com a ação "editar"
-                  no Cadastro (hub_pode_executar); sem permissão, a peça
-                  continua só em modo de consulta/leitura. */}
               {pecaId && canEdit && (
                 <div className="flex flex-wrap gap-2">
                   <Button
