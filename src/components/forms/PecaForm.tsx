@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -496,13 +496,26 @@ export function PecaForm({
   const pFrete = parseNum(watch('porc_frete'))
   const mLucro = parseNum(watch('margem_lucro'))
 
+  // Bug 08/10/2026 (produto 12895): a listagem mostrava 142,29 (valor_venda da Connect) e a
+  // edição 155,36 — o form recalculava a venda sobre `preco_custo`, que o import da Connect
+  // nunca atualiza (ficou um custo antigo). Agora, ao abrir, valem custo_total/valor_venda
+  // gravados; só recalcula quando alguém muda custo, frete, ST, IPI ou lucro.
+  const precoCarregado = useRef<{ chave: string; custo: number; venda: number } | null>(null)
+  const chavePreco = [pCusto, pST, pIPI, pFrete, mLucro].join('|')
+
   useEffect(() => {
     const calcBdi = pCusto * (pST / 100) + pCusto * (pIPI / 100)
-    const calcCustoTotal = pCusto + calcBdi + pCusto * (pFrete / 100)
+    let calcCustoTotal = pCusto + calcBdi + pCusto * (pFrete / 100)
 
     const mLucroToApply =
       mLucro === 0 && getValues('margem_lucro') === 0 && pecaId === null ? 150 : mLucro
-    const calcVenda = calcCustoTotal * (1 + mLucroToApply / 100)
+    let calcVenda = calcCustoTotal * (1 + mLucroToApply / 100)
+
+    const carregado = precoCarregado.current
+    if (carregado && carregado.chave === chavePreco) {
+      calcCustoTotal = carregado.custo
+      calcVenda = carregado.venda
+    }
 
     const formattedBdi = Number(calcBdi.toFixed(2))
     const formattedCustoTotal = Number(calcCustoTotal.toFixed(2))
@@ -516,7 +529,7 @@ export function PecaForm({
       setValue('preco_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
     if (getValues('valor_venda') !== formattedVenda)
       setValue('valor_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
-  }, [pCusto, pST, pIPI, pFrete, mLucro, setValue, getValues, pecaId])
+  }, [pCusto, pST, pIPI, pFrete, mLucro, chavePreco, setValue, getValues, pecaId])
 
   useEffect(() => {
     Promise.all([getFornecedores(), getMarcas(), getCategoriasProduto()]).then(([f, m, c]) => {
@@ -536,6 +549,26 @@ export function PecaForm({
         setSetoresSaldosForm(saldos)
         setCodigoProdutoAtual((data as any).codigo_produto ?? null)
         setEstoqueShowroomAtual(Number((data as any).estoque_showroom) || 0)
+        // Preço da Connect: custo_total já inclui ST/IPI/frete; o "Preço Custo" exibido é o
+        // custo base (vlCusto da Connect = custo_total ÷ (1 + %ST + %IPI + %Frete)).
+        const d = data as any
+        const custoGravado = parseNum(d.custo_total)
+        const vendaGravada = parseNum(d.valor_venda) || parseNum(d.preco_venda)
+        const st = parseNum(d.porc_st)
+        const ipi = parseNum(d.ipi_entrada)
+        const frete = parseNum(d.porc_frete)
+        const custoBase =
+          custoGravado > 0
+            ? Number((custoGravado / (1 + (st + ipi + frete) / 100)).toFixed(2))
+            : parseNum(d.preco_custo)
+        precoCarregado.current =
+          custoGravado > 0 && vendaGravada > 0
+            ? {
+                chave: [custoBase, st, ipi, frete, parseNum(d.margem_lucro)].join('|'),
+                custo: custoGravado,
+                venda: vendaGravada,
+              }
+            : null
         form.reset({
           ...data,
           fornecedor_principal_id: data.fornecedor_principal_id || 'none',
@@ -548,9 +581,9 @@ export function PecaForm({
           // `valor_venda` (o import não mexe nesses dois pra não disparar o
           // trigger). Sem esse fallback o campo "Preço Custo" abria em branco
           // na edição. Mesmo padrão que `valor_venda` já usava.
-          preco_custo: (data as any).preco_custo || (data as any).custo_total || 0,
-          preco_venda: (data as any).preco_venda || (data as any).valor_venda || 0,
-          valor_venda: (data as any).valor_venda || (data as any).preco_venda || 0,
+          preco_custo: custoBase || 0,
+          preco_venda: vendaGravada || 0,
+          valor_venda: vendaGravada || 0,
           // Bug achado em QA (2026-08-25): campos string opcionais no schema
           // usam z.string().optional(), que só aceita undefined — quando a
           // coluna vem null do banco, o zod rejeitava com "Invalid input" e
@@ -591,7 +624,7 @@ export function PecaForm({
       setEstoqueShowroomAtual(0)
       setSetoresSaldosForm(null)
     }
-  }, [pecaId, form])
+  }, [pecaId, form, parseNum])
 
   // SPEC-174 N6b/N6c: "Estoque Integrado" na vertical com os 8 setores
   // obrigatórios (sempre visíveis, mesmo zerados) + setores extras com saldo —
