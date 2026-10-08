@@ -503,7 +503,7 @@ export function PecaForm({
   // Conta da Connect (reunião Vinícius 08/10/2026; confere nos 4.537 produtos da planilha):
   //   Preço Custo = preço de TABELA do fornecedor (vlCusto) — nunca é alterado pelo sistema
   //   Valor Líquido = Preço Custo − % Desconto (desconto combinado com o fornecedor)
-  //   BDI = Valor Líquido × % ST + Valor Líquido × % IPI + Valor Líquido × % Despesas
+  //   BDI = Valor Líquido × (% Frete + % ST + % IPI + % Despesas) — todas as despesas
   //   Custo Total = Valor Líquido + BDI
   //   Venda = Custo Total × (1 + % Lucro)
   const valorLiquido = pCusto * (1 - pDesconto / 100)
@@ -515,8 +515,8 @@ export function PecaForm({
   const chavePreco = [pCusto, pDesconto, pST, pIPI, pDespesas, pFrete, mLucro].join('|')
 
   useEffect(() => {
-    const calcBdi = valorLiquido * ((pST + pIPI + pDespesas) / 100)
-    let calcCustoTotal = valorLiquido + calcBdi + valorLiquido * (pFrete / 100)
+    const calcBdi = valorLiquido * ((pFrete + pST + pIPI + pDespesas) / 100)
+    let calcCustoTotal = valorLiquido + calcBdi
 
     const mLucroToApply =
       mLucro === 0 && getValues('margem_lucro') === 0 && pecaId === null ? 150 : mLucro
@@ -780,11 +780,14 @@ export function PecaForm({
               <h3 className="text-sm font-semibold border-b-2 border-slate-900 pb-1">
                 Engenharia de Custos
               </h3>
-              <div className="grid grid-cols-2 gap-2">
+              {/* Reunião Vinícius 08/10/2026: a tela segue a lógica do negócio, de cima pra baixo —
+                  custo → desconto do fornecedor → despesas (BDI) → custo total → lucro → venda. */}
+              <p className="text-[11px] font-medium text-slate-500">1. Custo do fornecedor</p>
+              <div className="grid grid-cols-3 gap-2">
                 <InputField
                   control={form.control}
                   name="preco_custo"
-                  label="Preço Custo (R$)"
+                  label="Preço de Custo (R$)"
                   type="number"
                 />
                 <InputField
@@ -793,28 +796,47 @@ export function PecaForm({
                   label="% Desconto (fornecedor)"
                   type="number"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
-                  <label className="text-xs font-medium">Valor Líquido (R$)</label>
+                  <label className="text-xs font-medium">Custo c/ Desconto (R$)</label>
                   <Input
                     readOnly
                     className="h-7 text-sm bg-slate-50"
                     value={valorLiquido.toFixed(2)}
                   />
                 </div>
+              </div>
+              <p className="text-[11px] font-medium text-slate-500 pt-1">
+                2. Despesas (sobre o custo c/ desconto)
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                <InputField control={form.control} name="porc_frete" label="% Frete" type="number" />
+                <InputField control={form.control} name="porc_st" label="% ST" type="number" />
+                <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
                 <InputField
                   control={form.control}
-                  name="porc_frete"
-                  label="% Frete"
+                  name="porc_despesas"
+                  label="% Outras Despesas"
                   type="number"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <InputField control={form.control} name="porc_st" label="% ST" type="number" />
-                <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-md border">
+                <InputField
+                  control={form.control}
+                  name="porc_bdi"
+                  label="Valor BDI (R$)"
+                  type="number"
+                  readOnly
+                />
+                <InputField
+                  control={form.control}
+                  name="custo_total"
+                  label="Custo Total (R$)"
+                  type="number"
+                  readOnly
+                />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <p className="text-[11px] font-medium text-slate-500 pt-1">3. Lucro e preço de venda</p>
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-md border">
                 <InputField
                   control={form.control}
                   name="margem_lucro"
@@ -823,32 +845,8 @@ export function PecaForm({
                 />
                 <InputField
                   control={form.control}
-                  name="porc_despesas"
-                  label="% Despesas"
-                  type="number"
-                />
-              </div>
-              <div className="bg-slate-50 p-1.5 rounded-md border space-y-1 mt-1">
-                <div className="grid grid-cols-2 gap-2">
-                  <InputField
-                    control={form.control}
-                    name="porc_bdi"
-                    label="Valor BDI Calc. (R$)"
-                    type="number"
-                    readOnly
-                  />
-                  <InputField
-                    control={form.control}
-                    name="custo_total"
-                    label="Custo Total Calc. (R$)"
-                    type="number"
-                    readOnly
-                  />
-                </div>
-                <InputField
-                  control={form.control}
                   name="preco_venda"
-                  label="Preço Venda Final (R$)"
+                  label="Preço de Venda (R$)"
                   type="number"
                   readOnly
                 />
