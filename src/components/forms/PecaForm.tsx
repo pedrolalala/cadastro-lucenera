@@ -85,6 +85,7 @@ const schema = z.object({
   ativo: z.boolean().default(true),
   porc_frete: z.coerce.number().min(0).optional().default(0),
   porc_despesas: z.coerce.number().min(0).optional().default(0),
+  porc_desconto: z.coerce.number().min(0).max(100).optional().default(0),
   porc_bdi: z.coerce.number().min(0).optional().default(0),
   porc_st: z.coerce.number().min(0).optional().default(0),
   margem_lucro: z.coerce.number().min(0).optional().default(150),
@@ -470,6 +471,7 @@ export function PecaForm({
       ativo: true,
       porc_frete: 0,
       porc_despesas: 0,
+      porc_desconto: 0,
       porc_bdi: 0,
       porc_st: 0,
       margem_lucro: 150,
@@ -491,21 +493,30 @@ export function PecaForm({
   }, [])
 
   const pCusto = parseNum(watch('preco_custo'))
+  const pDesconto = parseNum(watch('porc_desconto'))
   const pST = parseNum(watch('porc_st'))
   const pIPI = parseNum(watch('ipi_entrada'))
+  const pDespesas = parseNum(watch('porc_despesas'))
   const pFrete = parseNum(watch('porc_frete'))
   const mLucro = parseNum(watch('margem_lucro'))
 
-  // Bug 08/10/2026 (produto 12895): a listagem mostrava 142,29 (valor_venda da Connect) e a
-  // edição 155,36 — o form recalculava a venda sobre `preco_custo`, que o import da Connect
-  // nunca atualiza (ficou um custo antigo). Agora, ao abrir, valem custo_total/valor_venda
-  // gravados; só recalcula quando alguém muda custo, frete, ST, IPI ou lucro.
+  // Conta da Connect (reunião Vinícius 08/10/2026; confere nos 4.537 produtos da planilha):
+  //   Preço Custo = preço de TABELA do fornecedor (vlCusto) — nunca é alterado pelo sistema
+  //   Valor Líquido = Preço Custo − % Desconto (desconto combinado com o fornecedor)
+  //   BDI = Valor Líquido × % ST + Valor Líquido × % IPI + Valor Líquido × % Despesas
+  //   Custo Total = Valor Líquido + BDI
+  //   Venda = Custo Total × (1 + % Lucro)
+  const valorLiquido = pCusto * (1 - pDesconto / 100)
+
+  // Bug 08/10/2026 (produto 12895): ao abrir, valem custo_total/valor_venda gravados pela
+  // Connect (a planilha arredonda o % lucro em 3 casas — recalcular mudaria centavos); só
+  // recalcula quando alguém muda custo, desconto, ST, IPI, despesas, frete ou lucro.
   const precoCarregado = useRef<{ chave: string; custo: number; venda: number } | null>(null)
-  const chavePreco = [pCusto, pST, pIPI, pFrete, mLucro].join('|')
+  const chavePreco = [pCusto, pDesconto, pST, pIPI, pDespesas, pFrete, mLucro].join('|')
 
   useEffect(() => {
-    const calcBdi = pCusto * (pST / 100) + pCusto * (pIPI / 100)
-    let calcCustoTotal = pCusto + calcBdi + pCusto * (pFrete / 100)
+    const calcBdi = valorLiquido * ((pST + pIPI + pDespesas) / 100)
+    let calcCustoTotal = valorLiquido + calcBdi + valorLiquido * (pFrete / 100)
 
     const mLucroToApply =
       mLucro === 0 && getValues('margem_lucro') === 0 && pecaId === null ? 150 : mLucro
@@ -529,7 +540,7 @@ export function PecaForm({
       setValue('preco_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
     if (getValues('valor_venda') !== formattedVenda)
       setValue('valor_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
-  }, [pCusto, pST, pIPI, pFrete, mLucro, chavePreco, setValue, getValues, pecaId])
+  }, [valorLiquido, pST, pIPI, pDespesas, pFrete, mLucro, chavePreco, setValue, getValues, pecaId])
 
   useEffect(() => {
     Promise.all([getFornecedores(), getMarcas(), getCategoriasProduto()]).then(([f, m, c]) => {
@@ -549,22 +560,24 @@ export function PecaForm({
         setSetoresSaldosForm(saldos)
         setCodigoProdutoAtual((data as any).codigo_produto ?? null)
         setEstoqueShowroomAtual(Number((data as any).estoque_showroom) || 0)
-        // Preço da Connect: custo_total já inclui ST/IPI/frete; o "Preço Custo" exibido é o
-        // custo base (vlCusto da Connect = custo_total ÷ (1 + %ST + %IPI + %Frete)).
+        // "Preço Custo" é sempre o gravado (tabela do fornecedor, vlCusto da Connect) — nunca
+        // derivado nem ajustado aqui.
         const d = data as any
         const custoGravado = parseNum(d.custo_total)
         const vendaGravada = parseNum(d.valor_venda) || parseNum(d.preco_venda)
-        const st = parseNum(d.porc_st)
-        const ipi = parseNum(d.ipi_entrada)
-        const frete = parseNum(d.porc_frete)
-        const custoBase =
-          custoGravado > 0
-            ? Number((custoGravado / (1 + (st + ipi + frete) / 100)).toFixed(2))
-            : parseNum(d.preco_custo)
+        const custoTabela = parseNum(d.preco_custo)
         precoCarregado.current =
           custoGravado > 0 && vendaGravada > 0
             ? {
-                chave: [custoBase, st, ipi, frete, parseNum(d.margem_lucro)].join('|'),
+                chave: [
+                  custoTabela,
+                  parseNum(d.porc_desconto),
+                  parseNum(d.porc_st),
+                  parseNum(d.ipi_entrada),
+                  parseNum(d.porc_despesas),
+                  parseNum(d.porc_frete),
+                  parseNum(d.margem_lucro),
+                ].join('|'),
                 custo: custoGravado,
                 venda: vendaGravada,
               }
@@ -576,12 +589,16 @@ export function PecaForm({
           porc_frete: (data as any).porc_frete || 0,
           porc_bdi: (data as any).porc_bdi || 0,
           porc_st: (data as any).porc_st || 0,
+          porc_desconto: (data as any).porc_desconto || 0,
+          porc_despesas: (data as any).porc_despesas || 0,
+          ipi_entrada: (data as any).ipi_entrada || 0,
+          margem_lucro: (data as any).margem_lucro ?? 0,
           // Produtos vindos só do import do Connect não têm `preco_custo`/
           // `preco_venda` — o custo real fica em `custo_total` e a venda em
           // `valor_venda` (o import não mexe nesses dois pra não disparar o
           // trigger). Sem esse fallback o campo "Preço Custo" abria em branco
           // na edição. Mesmo padrão que `valor_venda` já usava.
-          preco_custo: custoBase || 0,
+          preco_custo: custoTabela,
           preco_venda: vendaGravada || 0,
           valor_venda: vendaGravada || 0,
           // Bug achado em QA (2026-08-25): campos string opcionais no schema
@@ -770,6 +787,22 @@ export function PecaForm({
                   label="Preço Custo (R$)"
                   type="number"
                 />
+                <InputField
+                  control={form.control}
+                  name="porc_desconto"
+                  label="% Desconto (fornecedor)"
+                  type="number"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="text-xs font-medium">Valor Líquido (R$)</label>
+                  <Input
+                    readOnly
+                    className="h-7 text-sm bg-slate-50"
+                    value={valorLiquido.toFixed(2)}
+                  />
+                </div>
                 <InputField
                   control={form.control}
                   name="porc_frete"
