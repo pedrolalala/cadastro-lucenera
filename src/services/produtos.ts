@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Database } from '@/lib/supabase/types'
 // SPEC-174 N8: Casa Cor/Garantia não entram no estoque geral nem no
 // disponível (decisão "Setor separado", reunião de 01/10).
-import { isSetorForaDoGeral } from '@/lib/estoque-sectors'
+import { calcularDisponivel, isSetorForaDoGeral } from '@/lib/estoque-sectors'
 
 type Produto = Database['public']['Tables']['produtos']['Row']
 type ProdutoInsert = Database['public']['Tables']['produtos']['Insert']
@@ -234,6 +234,8 @@ export interface MovimentoProdutoRow {
   projeto_codigo: string | null
   l_fixo: string | null
   data_orcamento: string | null
+  // SPEC-191 B3: data da VENDA (aprovação financeira), não a do orçamento.
+  data_venda: string | null
   data_entrega: string | null
   valor_total_orcamento: number | null
   q_reserva: number
@@ -247,7 +249,7 @@ export async function getMovimentosProduto(produtoId: string): Promise<Movimento
   const { data, error } = await (supabase.from as any)('vw_cadastro_produto_movimentos')
     .select('*')
     .eq('produto_id', produtoId)
-    .order('data_orcamento', { ascending: false })
+    .order('data_venda', { ascending: false, nullsFirst: false })
   if (error) throw error
   return ((data || []) as any[]).map((r) => ({
     ...r,
@@ -547,6 +549,25 @@ export async function getProdutosEstoqueFiltradoBatched(
     return allProducts
   }
 
+  // SPEC-191 B1: reserva + separação do sistema por peça, para a coluna
+  // Disponível da lista bater com o destaque do painel (calcularDisponivel).
+  const saldosPorProduto = new Map<string, { q_reserva: number; q_separacao: number }>()
+  for (let from = 0; ; from += 1000) {
+    const { data: saldos, error: saldosError } = await (supabase.from as any)(
+      'vw_cadastro_produto_setores',
+    )
+      .select('produto_id, q_reserva, q_separacao')
+      .range(from, from + 999)
+    if (saldosError) throw saldosError
+    for (const r of saldos || []) {
+      saldosPorProduto.set(r.produto_id, {
+        q_reserva: Number(r.q_reserva) || 0,
+        q_separacao: Number(r.q_separacao) || 0,
+      })
+    }
+    if (!saldos || saldos.length < 1000) break
+  }
+
   let products: any[] = []
 
   if (params.searchTerm) {
@@ -598,15 +619,11 @@ export async function getProdutosEstoqueFiltradoBatched(
     // detalhes (PecaDetailsPanel.tsx), fora do estoque geral.
     const estoqueItemsGeral = estoqueItems.filter((ei: any) => !isSetorForaDoGeral(ei.local))
 
-    const totalQuantidade = estoqueItemsGeral.reduce(
-      (sum: number, ei: any) => sum + (Number(ei.quantidade) || 0),
-      0,
-    )
-    const totalReservada = estoqueItemsGeral.reduce(
-      (sum: number, ei: any) => sum + (Number(ei.quantidade_reservada) || 0),
-      0,
-    )
-    const disponivel = totalQuantidade - totalReservada
+    const {
+      geral: totalQuantidade,
+      comprometido: totalReservada,
+      disponivel,
+    } = calcularDisponivel(estoqueItemsGeral, saldosPorProduto.get(p.id))
 
     return {
       id: p.id,

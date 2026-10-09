@@ -56,6 +56,31 @@ export interface SetoresSaldosProjeto {
   q_entrega_futura: number
 }
 
+// SPEC-191 B1 (reunião 08/10, Vinícius): Disponível = Estoque Geral − Reserva −
+// Separação, e o MESMO número na coluna da lista e no destaque do painel.
+// Enquanto Connect e sistema rodam em paralelo, a reserva existe nos dois: a do
+// sistema (vendas feitas aqui: reserva + separação, vw_cadastro_produto_setores)
+// e a da Connect (estoque_itens.quantidade_reservada, vinda da planilha). Vale a
+// MAIOR das duas (decisão do usuário 09/10): 6654 → 52 − 33 = 19; 10289 →
+// 568 − 757 = −189. Estoque Geral = estoque_itens fora Casa Cor/Garantia (o
+// Showroom vive em produtos.estoque_showroom e não entra).
+export function calcularDisponivel(
+  estoqueItens: any[],
+  saldos: Pick<SetoresSaldosProjeto, 'q_reserva' | 'q_separacao'> | null | undefined,
+): { geral: number; comprometido: number; disponivel: number } {
+  const itensGeral = estoqueItens.filter(
+    (ei: any) => !isSetorForaDoGeral(ei.local) && ei.local !== 'Showroom',
+  )
+  const geral = itensGeral.reduce((s: number, ei: any) => s + (Number(ei.quantidade) || 0), 0)
+  const reservadoConnect = itensGeral.reduce(
+    (s: number, ei: any) => s + (Number(ei.quantidade_reservada) || 0),
+    0,
+  )
+  const comprometidoSistema = (Number(saldos?.q_reserva) || 0) + (Number(saldos?.q_separacao) || 0)
+  const comprometido = Math.max(comprometidoSistema, reservadoConnect)
+  return { geral, comprometido, disponivel: geral - comprometido }
+}
+
 export interface SetorQuantidadeRow {
   local: string
   quantidade: number

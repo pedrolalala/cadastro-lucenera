@@ -1,21 +1,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Box, Edit, Building2 } from 'lucide-react'
+import { Box, Edit } from 'lucide-react'
 import {
   getEstoqueItens,
   getSetoresProduto,
   getMovimentosProduto,
   getPedidosCompraEmTransito,
-  getFornecedorSugeridoProduto,
   type MovimentoProdutoRow,
   type PedidoCompraEmTransitoRow,
-  type FornecedorSugeridoProdutoRow,
 } from '@/services/produtos'
 import {
-  buildEstoquePorSetor,
   buildSetoresObrigatorios,
-  isSetorForaDoGeral,
+  calcularDisponivel,
   type SetoresSaldosProjeto,
 } from '@/lib/estoque-sectors'
 import { PecaAbasSetores } from '@/components/pecas/PecaAbasSetores'
@@ -65,10 +62,6 @@ export function PecaDetailsPanel({
   const [loadingMovimentos, setLoadingMovimentos] = useState(false)
   const [pedidosData, setPedidosData] = useState<PedidoCompraEmTransitoRow[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
-  const [fornecedorSugerido, setFornecedorSugerido] = useState<FornecedorSugeridoProdutoRow | null>(
-    null,
-  )
-  const [loadingFornecedorSugerido, setLoadingFornecedorSugerido] = useState(false)
 
   useEffect(() => {
     if (!peca) {
@@ -157,58 +150,13 @@ export function PecaDetailsPanel({
     }
   }, [peca])
 
-  // SPEC-049 (seção adicional "Fornecedor Sugerido"): sugestão de compra por
-  // produto (vw_necessidade_compra), independente da seção "Pedido de Compra
-  // em Trânsito" — uma reflete pedidos já feitos, a outra uma sugestão.
-  useEffect(() => {
-    if (!peca) {
-      setFornecedorSugerido(null)
-      return
-    }
-    let cancelled = false
-    setLoadingFornecedorSugerido(true)
-    ;(async () => {
-      try {
-        const row = await getFornecedorSugeridoProduto(peca.id)
-        if (!cancelled) setFornecedorSugerido(row)
-      } catch {
-        if (!cancelled) setFornecedorSugerido(null)
-      } finally {
-        if (!cancelled) setLoadingFornecedorSugerido(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [peca])
-
   // SPEC-151: a quantidade de Showroom nunca vem de estoque_itens — o trigger
   // fn_sync_estoque_itens_from_produtos zera essa linha (local='Showroom') a
   // cada update de produtos, para não duplicar soma de estoque. A fonte real
   // é produtos.estoque_showroom, a mesma que o site público do Showroom usa.
   const estoqueShowroom = Number(peca?.estoque_showroom) || 0
-  const hasStockRecords = estoqueData.length > 0 || estoqueShowroom > 0
-  const estoquePorSetor = useMemo(() => {
-    if (!hasStockRecords) return []
-    const outrosLocais = buildEstoquePorSetor(estoqueData).filter((i) => i.local !== 'Showroom')
-    return [
-      ...outrosLocais,
-      { local: 'Showroom', quantidade: estoqueShowroom, quantidade_reservada: 0 },
-    ].sort((a, b) => b.quantidade - a.quantidade)
-  }, [estoqueData, hasStockRecords, estoqueShowroom])
-  // SPEC-174 N8: Casa Cor/Garantia aparecem na tabela (estoquePorSetor
-  // continua com todos os setores), mas não entram no total geral nem no
-  // disponível -- decisão "Setor separado" da reunião de 01/10.
-  const estoquePorSetorGeral = estoquePorSetor.filter((i) => !isSetorForaDoGeral(i.local))
-  const totalGeral = estoquePorSetorGeral.reduce((s, i) => s + i.quantidade, 0)
-  // SPEC-101: os badges do cabeçalho ("Reservado"/"Disponível") são a métrica
-  // agregada de negócio, não por local — "Reservado" tem que ser só o que
-  // está no setor Reserva, não o comprometido inteiro (reserva + entrega
-  // futura). estoque_itens.quantidade_reservada mistura os dois por desenho
-  // (é usada por outras RPCs com esse significado) — a métrica certa vem de
-  // vw_cadastro_produto_setores (soma de q_reserva por projeto_item_id).
-  const totalReservado = Number(setoresSaldos?.q_reserva) || 0
-  const totalDisponivel = totalGeral - totalReservado
+  // SPEC-191 B1: a conta é a mesma da coluna Disponível da lista.
+  const totalDisponivel = calcularDisponivel(estoqueData, setoresSaldos).disponivel
 
   // SPEC-174 N6c: os 8 setores obrigatórios, sempre visíveis. SPEC-182 (C2):
   // mais "Entregue" (o que ainda está com o cliente: entregue − devolvido),
@@ -223,8 +171,6 @@ export function PecaDetailsPanel({
     const linha = { local: 'Entregue', quantidade: entregue, extra: false }
     return i >= 0 ? [...base.slice(0, i + 1), linha, ...base.slice(i + 1)] : [...base, linha]
   }, [estoqueData, estoqueShowroom, setoresSaldos, movimentos])
-
-  const hasFornecedorSugerido = (fornecedorSugerido?.pendente ?? 0) > 0
 
   if (!peca) {
     return (
@@ -286,7 +232,7 @@ export function PecaDetailsPanel({
                       ? 'border-emerald-300 bg-emerald-50'
                       : 'border-slate-300 bg-white',
               )}
-              title="Estoque geral menos o reservado"
+              title="Estoque geral − reserva − separação (vale a maior reserva entre o sistema e a Connect)"
             >
               <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
                 Disponível
@@ -322,18 +268,9 @@ export function PecaDetailsPanel({
             )}
           </div>
         </div>
-        {/* SPEC-049 (seção adicional): Fornecedor Sugerido — só aparece se houver
-            quantidade pendente sugerida para compra (vw_necessidade_compra). */}
-        {!loadingFornecedorSugerido && hasFornecedorSugerido && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <Building2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span>
-              <span className="font-medium">Fornecedor Sugerido:</span>{' '}
-              {fornecedorSugerido?.fornecedor_nome || '-'} ·{' '}
-              <span className="font-medium">Pendente:</span> {fornecedorSugerido?.pendente}
-            </span>
-          </div>
-        )}
+        {/* SPEC-191 B5 (reunião 08/10): a faixa "Fornecedor Sugerido · Pendente"
+            saiu — o pendente é o negativo que já aparece no destaque Disponível,
+            e sem ela cabe mais coisa na tela. */}
       </div>
 
       <div className="p-4 sm:p-5">

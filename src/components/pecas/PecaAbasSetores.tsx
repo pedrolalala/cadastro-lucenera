@@ -154,55 +154,46 @@ export function PecaAbasSetores({
         {carregandoSetores ? (
           <Carregando colunas={2} />
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader className="bg-slate-100/80">
-                <TableRow>
-                  <Head>Setor</Head>
-                  <Head right>Quantidade</Head>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {setores.map((s) => {
-                  const destino = abaDoSetor(s.local)
-                  return (
-                    <TableRow
-                      key={s.local}
-                      onClick={destino ? () => setAba(destino) : undefined}
-                      className={cn(
-                        'h-10',
-                        destino ? 'cursor-pointer hover:bg-amber-50' : 'hover:bg-transparent',
-                      )}
-                      title={destino ? `Ver detalhe de ${s.local}` : undefined}
-                    >
-                      <TableCell className="py-2 px-3 text-sm font-medium text-slate-700">
-                        <span className="flex items-center gap-1.5">
-                          {s.local}
-                          {isSetorForaDoGeral(s.local) && (
-                            <span className="text-[9px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                              fora do disponível
-                            </span>
-                          )}
-                          {destino && <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-                        </span>
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          'py-2 px-3 text-sm text-right font-semibold tabular-nums',
-                          s.quantidade > 0
-                            ? 'text-slate-900'
-                            : s.quantidade < 0
-                              ? 'text-destructive'
-                              : 'text-slate-400',
-                        )}
-                      >
-                        {s.quantidade}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+          // SPEC-191 B4: a quantidade ficava do outro lado da tela ("abre muito
+          // longe") — lista estreita, com linha pontilhada guiando até o número.
+          <div className="border rounded-lg overflow-hidden max-w-md divide-y divide-slate-100">
+            {setores.map((s) => {
+              const destino = abaDoSetor(s.local)
+              return (
+                <div
+                  key={s.local}
+                  onClick={destino ? () => setAba(destino) : undefined}
+                  className={cn(
+                    'flex items-center gap-2 px-3 h-9 text-sm',
+                    destino ? 'cursor-pointer hover:bg-amber-50' : '',
+                  )}
+                  title={destino ? `Ver detalhe de ${s.local}` : undefined}
+                >
+                  <span className="flex items-center gap-1.5 font-medium text-slate-700 shrink-0">
+                    {s.local}
+                    {isSetorForaDoGeral(s.local) && (
+                      <span className="text-[9px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                        fora do disponível
+                      </span>
+                    )}
+                    {destino && <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                  </span>
+                  <span className="flex-1 border-b border-dotted border-slate-300 translate-y-1" />
+                  <span
+                    className={cn(
+                      'font-semibold tabular-nums text-right min-w-[3ch]',
+                      s.quantidade > 0
+                        ? 'text-slate-900'
+                        : s.quantidade < 0
+                          ? 'text-destructive'
+                          : 'text-slate-400',
+                    )}
+                  >
+                    {s.quantidade}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
       </TabsContent>
@@ -227,7 +218,7 @@ export function PecaAbasSetores({
                       <Head>Projeto</Head>
                       <Head>L</Head>
                       <Head right>Qtd</Head>
-                      <Head>Data Orçamento</Head>
+                      <Head>Data da Venda</Head>
                       <Head>Data da Entrega</Head>
                       <Head right>Valor Total</Head>
                     </TableRow>
@@ -262,7 +253,7 @@ export function PecaAbasSetores({
                           )}
                         </TableCell>
                         <TableCell className="py-2 px-3 text-xs whitespace-nowrap">
-                          {formatDate(m.data_orcamento)}
+                          {formatDate(m.data_venda)}
                         </TableCell>
                         <TableCell className="py-2 px-3 text-xs whitespace-nowrap">
                           {formatDate(m.data_entrega)}
