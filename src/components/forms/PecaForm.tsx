@@ -700,15 +700,14 @@ export function PecaForm({
     async (v: FormData) => {
       setLoading(true)
       try {
-        // SPEC-193 B3: o campo "Referência" grava em `referencia` (antes gravava em `sku`, cópia que
-        // vai sair do banco). Até lá, `sku` acompanha a referência para não ficar desatualizado.
+        // SPEC-193 B3: o campo "Referência" grava em `referencia`. `sku` virou coluna gerada no banco
+        // (= referencia, só leitura — migration 205) e não pode ser enviado.
         const referencia = v.referencia?.trim() || null
         if (referencia && (await checkReferenciaExists(referencia, pecaId)))
           return form.setError('referencia', { message: 'Em uso' })
         const payload = {
           ...v,
           referencia,
-          sku: referencia,
           fornecedor_principal_id:
             v.fornecedor_principal_id === 'none' ? null : v.fornecedor_principal_id,
         } as any
