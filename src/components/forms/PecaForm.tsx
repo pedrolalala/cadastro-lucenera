@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus, Trash2, Copy } from 'lucide-react'
+import { Plus, Trash2, Copy, Info, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -61,6 +61,7 @@ import {
   getSetoresProduto,
   createMarca,
   createFornecedor,
+  podeVerCustoProduto,
 } from '@/services/produtos'
 
 // Bug achado em QA (2026-08-25): SKU_PREFIX era 'teste' — toda peça nova
@@ -99,13 +100,21 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-const InputField = ({ control, name, label, type = 'text', readOnly = false }: any) => (
+// SPEC-193 A1/B4: `ajuda` aparece ao passar o mouse no (i) ao lado do nome do campo.
+const InputField = ({ control, name, label, type = 'text', readOnly = false, ajuda }: any) => (
   <FormField
     control={control}
     name={name}
     render={({ field }) => (
       <FormItem className="space-y-0.5">
-        <FormLabel className="text-xs">{label}</FormLabel>
+        <FormLabel className="text-xs flex items-center gap-1">
+          {label}
+          {ajuda && (
+            <span title={ajuda} className="cursor-help text-slate-400">
+              <Info className="h-3 w-3" />
+            </span>
+          )}
+        </FormLabel>
         <FormControl>
           <Input
             type={type}
@@ -432,6 +441,11 @@ export function PecaForm({
   // acidental apagava direto) — fica só aqui dentro da edição completa.
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // SPEC-193 C2: custo e impostos só para a Administração. null = ainda verificando.
+  const [podeVerCusto, setPodeVerCusto] = useState<boolean | null>(null)
+  useEffect(() => {
+    podeVerCustoProduto().then(setPodeVerCusto)
+  }, [])
 
   const handleDelete = async () => {
     if (!pecaId) return
@@ -515,6 +529,9 @@ export function PecaForm({
   const chavePreco = [pCusto, pDesconto, pST, pIPI, pDespesas, pFrete, mLucro].join('|')
 
   useEffect(() => {
+    // SPEC-193 C2: sem acesso ao custo, o form não tem custo/impostos — não recalcular a venda
+    // (daria zero); vale o preço de venda gravado.
+    if (podeVerCusto !== true) return
     const calcBdi = valorLiquido * ((pFrete + pST + pIPI + pDespesas) / 100)
     let calcCustoTotal = valorLiquido + calcBdi
 
@@ -540,7 +557,19 @@ export function PecaForm({
       setValue('preco_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
     if (getValues('valor_venda') !== formattedVenda)
       setValue('valor_venda', formattedVenda, { shouldValidate: true, shouldDirty: true })
-  }, [valorLiquido, pST, pIPI, pDespesas, pFrete, mLucro, chavePreco, setValue, getValues, pecaId])
+  }, [
+    valorLiquido,
+    pST,
+    pIPI,
+    pDespesas,
+    pFrete,
+    mLucro,
+    chavePreco,
+    setValue,
+    getValues,
+    pecaId,
+    podeVerCusto,
+  ])
 
   useEffect(() => {
     Promise.all([getFornecedores(), getMarcas(), getCategoriasProduto()]).then(([f, m, c]) => {
@@ -780,6 +809,25 @@ export function PecaForm({
               <h3 className="text-sm font-semibold border-b-2 border-slate-900 pb-1">
                 Engenharia de Custos
               </h3>
+              {podeVerCusto === false ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-0.5">
+                      <label className="text-xs font-medium">Preço de Venda (R$)</label>
+                      <Input
+                        readOnly
+                        className="h-7 text-sm bg-slate-50"
+                        value={parseNum(watch('valor_venda') || watch('preco_venda')).toFixed(2)}
+                      />
+                    </div>
+                  </div>
+                  <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <Lock className="h-3 w-3" />
+                    Custo e impostos ficam visíveis só para a Administração.
+                  </p>
+                </>
+              ) : (
+                <>
               {/* Reunião Vinícius 08/10/2026: a tela segue a lógica do negócio, de cima pra baixo —
                   custo → desconto do fornecedor → despesas (BDI) → custo total → lucro → venda. */}
               <p className="text-[11px] font-medium text-slate-500">1. Custo do fornecedor</p>
@@ -809,16 +857,39 @@ export function PecaForm({
                 2. Despesas (sobre o custo c/ desconto)
               </p>
               <div className="grid grid-cols-4 gap-2">
-                <InputField control={form.control} name="porc_frete" label="% Frete" type="number" />
-                <InputField control={form.control} name="porc_st" label="% ST" type="number" />
-                <InputField control={form.control} name="ipi_entrada" label="% IPI" type="number" />
+                <InputField
+                  control={form.control}
+                  name="porc_frete"
+                  label="% Frete"
+                  type="number"
+                  ajuda="Frete informado pelo fornecedor."
+                />
+                <InputField
+                  control={form.control}
+                  name="porc_st"
+                  label="% ST"
+                  type="number"
+                  ajuda="Substituição tributária destacada na nota: o fornecedor recolhe antes e a Lucenera paga junto com a nota."
+                />
+                <InputField
+                  control={form.control}
+                  name="ipi_entrada"
+                  label="% IPI"
+                  type="number"
+                  ajuda="IPI informado pelo fornecedor."
+                />
                 <InputField
                   control={form.control}
                   name="porc_despesas"
                   label="% Outras Despesas"
                   type="number"
+                  ajuda="Na prática, o ICMS que a Lucenera recolhe por fora no fim do mês (não vem destacado na nota). Ex.: Stella (SC → SP), crédito de 4% na compra e 18% na venda = ~14% no custo."
                 />
               </div>
+              {/* SPEC-193 A1 (reunião 09/10): o nome fica igual ao da Connect; o texto explica. */}
+              <p className="text-[10px] text-slate-500">
+                % Outras Despesas = ICMS recolhido por fora no fim do mês (não vem na nota).
+              </p>
               <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-md border">
                 <InputField
                   control={form.control}
@@ -840,8 +911,9 @@ export function PecaForm({
                 <InputField
                   control={form.control}
                   name="margem_lucro"
-                  label="% Lucro"
+                  label="% Lucro (sobre o custo total)"
                   type="number"
+                  ajuda="Igual ao Lucro da Connect: Preço de Venda = Custo Total × (1 + % Lucro)."
                 />
                 <InputField
                   control={form.control}
@@ -851,6 +923,8 @@ export function PecaForm({
                   readOnly
                 />
               </div>
+                </>
+              )}
             </div>
 
             <div className="space-y-1.5 border-2 border-slate-900 rounded-md p-2">
@@ -866,12 +940,16 @@ export function PecaForm({
                 <InputField control={form.control} name="cest" label="CEST" />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <InputField
-                  control={form.control}
-                  name="icms_entrada"
-                  label="% ICMS Entr."
-                  type="number"
-                />
+                {podeVerCusto === false ? (
+                  <div />
+                ) : (
+                  <InputField
+                    control={form.control}
+                    name="icms_entrada"
+                    label="% ICMS Entr."
+                    type="number"
+                  />
+                )}
                 <InputField
                   control={form.control}
                   name="mascara_produto"

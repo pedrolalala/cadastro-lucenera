@@ -8,11 +8,65 @@ type Produto = Database['public']['Tables']['produtos']['Row']
 type ProdutoInsert = Database['public']['Tables']['produtos']['Insert']
 type ProdutoUpdate = Database['public']['Tables']['produtos']['Update']
 
+// SPEC-193 C2 (decisão 09/10): custo e impostos da peça só para a Administração (Lana, Débora,
+// Carol, Matheus, Vinícius + Pedro/Filippo). No banco, essas colunas de `produtos` ficam fechadas
+// para leitura direta; o custo vem de `vw_produtos_custo`, que só devolve linhas para quem está em
+// `produto_custo_visualizadores`. Por isso nada aqui pode ler `produtos` com '*'.
+export const PRODUTO_COLUNAS = `
+  id, marca_id, nome, sku, categoria, preco_venda, ativo, created_at, updated_at, codigo_produto,
+  referencia, estoque_total, estoque_showroom, estoque_disponivel, unidade, valor_venda, codigo_legado,
+  categoria_id, fornecedor_principal_id, descricao_tecnica, ncm, tipo_fiscal, cst, cest,
+  status_comercial, mascara_produto, prazo_entrega_dias, multiplo_compra, estoque_minimo,
+  imagem_showroom_url, grupo_fiscal_nao_contribuinte, grupo_fiscal_revenda, tem_st
+`
+
+// Campos que só a Administração lê e grava (mais preco_venda/valor_venda, que saem da conta do custo).
+export const CAMPOS_CUSTO = [
+  'preco_custo',
+  'porc_desconto',
+  'percentual_desconto_compra',
+  'porc_frete',
+  'porc_st',
+  'ipi_entrada',
+  'icms_entrada',
+  'porc_despesas',
+  'porc_bdi',
+  'vl_custo_indireto',
+  'custo_total',
+  'margem_lucro',
+  'percentual_lucro',
+] as const
+
+let podeVerCustoCache: Promise<boolean> | null = null
+export function podeVerCustoProduto(): Promise<boolean> {
+  if (!podeVerCustoCache) {
+    podeVerCustoCache = Promise.resolve(
+      (supabase as any).rpc('pode_ver_custo_produto'),
+    ).then(({ data, error }: any) => {
+      if (error) {
+        podeVerCustoCache = null
+        return false
+      }
+      return data === true
+    })
+  }
+  return podeVerCustoCache
+}
+
+async function semCamposDeCusto<T extends Record<string, any>>(produto: T): Promise<T> {
+  if (await podeVerCustoProduto()) return produto
+  const limpo: Record<string, any> = { ...produto }
+  for (const c of CAMPOS_CUSTO) delete limpo[c]
+  delete limpo.preco_venda
+  delete limpo.valor_venda
+  return limpo as T
+}
+
 export async function getProdutos() {
   const { data, error } = await supabase
     .from('produtos')
     .select(`
-      *,
+      ${PRODUTO_COLUNAS},
       marca:marcas(nome),
       fornecedor:contatos!produtos_fornecedor_principal_id_fkey(nome),
       categoria_rel:categorias_produto(nome)
@@ -23,9 +77,15 @@ export async function getProdutos() {
 }
 
 export async function getProduto(id: string) {
-  const { data, error } = await supabase.from('produtos').select('*').eq('id', id).single()
+  const { data, error } = await supabase.from('produtos').select(PRODUTO_COLUNAS).eq('id', id).single()
   if (error) throw error
-  return data
+  // SPEC-193 C2: custo/impostos à parte; quem não é da Administração recebe só os dados da peça.
+  const { data: custo } = await (supabase as any)
+    .from('vw_produtos_custo')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  return { ...(data as any), ...(custo || {}) }
 }
 
 export async function checkSkuExists(sku: string, excludeId?: string | null) {
@@ -52,8 +112,8 @@ export async function checkCodigoExists(codigo: number, excludeId?: string | nul
 export async function createProduto(produto: ProdutoInsert) {
   const { data, error } = await supabase
     .from('produtos')
-    .insert([{ ...produto, ativo: true }])
-    .select()
+    .insert([{ ...(await semCamposDeCusto(produto)), ativo: true }])
+    .select(PRODUTO_COLUNAS)
     .single()
   if (error) throw error
   return data
@@ -62,9 +122,9 @@ export async function createProduto(produto: ProdutoInsert) {
 export async function updateProduto(id: string, produto: ProdutoUpdate) {
   const { data, error } = await supabase
     .from('produtos')
-    .update(produto)
+    .update(await semCamposDeCusto(produto))
     .eq('id', id)
-    .select()
+    .select(PRODUTO_COLUNAS)
     .single()
   if (error) throw error
   return data
@@ -352,7 +412,7 @@ export async function getAllProdutosBatched(
   batchSize = 500,
   onProgress?: (loaded: number, total: number | null) => void,
 ) {
-  const { count } = await supabase.from('produtos').select('*', { count: 'exact', head: true })
+  const { count } = await supabase.from('produtos').select('id', { count: 'exact', head: true })
 
   let allData: any[] = []
   let offset = 0
@@ -362,7 +422,7 @@ export async function getAllProdutosBatched(
     const { data, error } = await supabase
       .from('produtos')
       .select(`
-        *,
+        ${PRODUTO_COLUNAS},
         marca:marcas(nome),
         fornecedor:contatos!produtos_fornecedor_principal_id_fkey(nome),
         categoria_rel:categorias_produto(nome)
@@ -417,7 +477,7 @@ export async function getProdutosFiltradosBatched(
   }
 
   const countQuery = applyFilters(
-    supabase.from('produtos').select('*', { count: 'exact', head: true }),
+    supabase.from('produtos').select('id', { count: 'exact', head: true }),
   )
   const { count } = await countQuery
 
@@ -429,7 +489,7 @@ export async function getProdutosFiltradosBatched(
     let query = supabase
       .from('produtos')
       .select(`
-        *,
+        ${PRODUTO_COLUNAS},
         marca:marcas(nome),
         fornecedor:contatos!produtos_fornecedor_principal_id_fkey(nome),
         categoria_rel:categorias_produto(nome)
@@ -519,7 +579,7 @@ export async function getProdutosEstoqueFiltradoBatched(
   `
 
   const fetchBatched = async (extraFilterFn?: (q: any) => any): Promise<any[]> => {
-    let countQuery = supabase.from('produtos').select('*', { count: 'exact', head: true })
+    let countQuery = supabase.from('produtos').select('id', { count: 'exact', head: true })
     countQuery = applyCommonFilters(countQuery)
     if (extraFilterFn) countQuery = extraFilterFn(countQuery)
     const { count } = await countQuery
