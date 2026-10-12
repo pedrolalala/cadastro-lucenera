@@ -33,14 +33,14 @@ export function EstoqueSetoresList({
               )}
             >
               <span className="truncate">{s.local}</span>
-              {/* SPEC-174 N8: Casa Cor/Garantia ficam visíveis mas fora do
-                  estoque geral/disponível do produto. */}
-              {foraDoGeral && (
-                <span className="shrink-0 text-[9px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                  fora do disponível
-                </span>
-              )}
             </span>
+            {/* SPEC-174 N8 / SPEC-195 B5: Casa Cor/Garantia ficam visíveis mas fora
+                do disponível — o aviso fica ao lado do número. */}
+            {foraDoGeral && (
+              <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                não disponível
+              </span>
+            )}
             <span
               className={cn(
                 'shrink-0 font-semibold tabular-nums',

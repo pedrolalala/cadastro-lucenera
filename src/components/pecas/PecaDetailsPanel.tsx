@@ -210,7 +210,7 @@ export function PecaDetailsPanel({
                       peca.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600',
                     )}
                   >
-                    {peca.ativo ? 'Ativo' : 'Inativo'}
+                    {peca.ativo ? 'Ativo' : 'Desativada'}
                   </span>
                 </span>
               }

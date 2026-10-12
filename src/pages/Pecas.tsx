@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -39,6 +40,7 @@ type SortKey =
   | 'referencia'
   | 'nome'
   | 'marca_nome'
+  | 'categoria'
   | 'preco'
   | 'estoque_total'
   | 'estoque_disponivel'
@@ -49,6 +51,7 @@ const SORT_COLS: { key: SortKey; label: string }[] = [
   { key: 'referencia', label: 'Referência' },
   { key: 'nome', label: 'Descrição' },
   { key: 'marca_nome', label: 'Marca' },
+  { key: 'categoria', label: 'Categoria' },
   { key: 'preco', label: 'Preço Venda' },
   { key: 'estoque_total', label: 'Estoque Total' },
   { key: 'estoque_disponivel', label: 'Disponível' },
@@ -64,6 +67,8 @@ function getSortValue(row: any, key: SortKey): string | number {
       return row.nome || ''
     case 'marca_nome':
       return row.marca_nome || ''
+    case 'categoria':
+      return row.categoria || ''
     case 'preco':
       return row.valor_venda ?? row.preco_venda ?? 0
     case 'estoque_total':
@@ -105,6 +110,9 @@ export default function Pecas() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [marcaId, setMarcaId] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
+  // SPEC-195 B1 (reunião 30.02 + decisão 11/10): abre mostrando só as peças com
+  // estoque (positivo ou negativo); a busca continua achando todas.
+  const [soComEstoque, setSoComEstoque] = useState(true)
 
   const [marcas, setMarcas] = useState<{ id: string; nome: string }[]>([])
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([])
@@ -180,11 +188,20 @@ export default function Pecas() {
 
   useEffect(() => {
     setVisibleCount(VISIBLE_BATCH)
-  }, [debouncedSearch, marcaId, categoriaId])
+  }, [debouncedSearch, marcaId, categoriaId, soComEstoque])
+
+  // Filippo (30.02): "quando eu busco tem que aparecer" — com termo de busca o
+  // filtro "Só com estoque" não esconde nada.
+  const buscando = !!debouncedSearch.trim()
+  const filtroEstoqueAtivo = soComEstoque && !buscando
+  const produtosFiltrados = useMemo(
+    () => (filtroEstoqueAtivo ? produtos.filter((p) => p.tem_saldo) : produtos),
+    [produtos, filtroEstoqueAtivo],
+  )
 
   const sortedProdutos = useMemo(
-    () => (sortKey ? sortProdutos(produtos, sortKey, sortDir) : produtos),
-    [produtos, sortKey, sortDir],
+    () => (sortKey ? sortProdutos(produtosFiltrados, sortKey, sortDir) : produtosFiltrados),
+    [produtosFiltrados, sortKey, sortDir],
   )
 
   const selectedPeca = useMemo(() => {
@@ -201,7 +218,7 @@ export default function Pecas() {
       marca_nome: row.marca_nome,
       valor_venda: row.valor_venda,
       preco_venda: row.preco_venda,
-      ativo: true,
+      ativo: row.ativo !== false,
       estoque_total: row.estoque_total,
       estoque_reservado: row.estoque_reservado,
       estoque_disponivel: row.estoque_disponivel,
@@ -217,6 +234,7 @@ export default function Pecas() {
     setDebouncedSearch('')
     setMarcaId('')
     setCategoriaId('')
+    setSoComEstoque(true)
   }
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -296,6 +314,13 @@ export default function Pecas() {
                 allLabel="Todas"
               />
             </div>
+            <label
+              className="flex items-center gap-2 shrink-0 text-sm text-slate-700 cursor-pointer select-none h-9"
+              title="Mostra só as peças com quantidade diferente de zero (positiva ou negativa). Na busca aparecem todas."
+            >
+              <Switch checked={soComEstoque} onCheckedChange={setSoComEstoque} />
+              Só com estoque
+            </label>
             {hasActiveFilters && (
               <Button
                 variant="ghost"
@@ -313,10 +338,18 @@ export default function Pecas() {
             <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100 shrink-0">
               {loading
                 ? `Carregando... ${progress.loaded}${progress.total ? `/${progress.total}` : ''} peças`
-                : `${visibleItems.length} de ${sortedProdutos.length} registros ativos`}
+                : `${visibleItems.length} de ${sortedProdutos.length} registros${
+                    filtroEstoqueAtivo
+                      ? ' com estoque'
+                      : soComEstoque && buscando
+                        ? ' (na busca aparecem também as peças sem estoque)'
+                        : ''
+                  }`}
             </div>
             <div className="overflow-auto flex-1" onScroll={handleScroll}>
-              <Table className="w-full table-fixed">
+              {/* SPEC-195 B4: linhas da tabela em preto, estilo planilha do sistema
+                  operacional (no computador do Vinícius as linhas claras sumiam). */}
+              <Table className="w-full table-fixed border-collapse [&_td]:border [&_td]:border-black [&_th]:border [&_th]:border-black">
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
                     {SORT_COLS.map((col) => {
@@ -329,6 +362,8 @@ export default function Pecas() {
                               ? ''
                               : col.key === 'marca_nome'
                                 ? 'w-[12%] hidden xl:table-cell'
+                                : col.key === 'categoria'
+                                  ? 'w-[11%] hidden xl:table-cell'
                                 : col.key === 'preco'
                                   ? 'w-[11%] text-right'
                                   : col.key === 'estoque_total'
@@ -367,7 +402,7 @@ export default function Pecas() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-32 text-center">
+                      <TableCell colSpan={8} className="h-32 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                           <span className="text-xs text-slate-500">
@@ -380,7 +415,7 @@ export default function Pecas() {
                     </TableRow>
                   ) : visibleItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-40 text-center">
+                      <TableCell colSpan={8} className="h-40 text-center">
                         <div className="flex flex-col items-center text-slate-400">
                           <Box className="w-10 h-10 mb-3 text-slate-300" />
                           <p className="text-slate-600 font-medium">Nenhum produto encontrado</p>
@@ -416,10 +451,11 @@ export default function Pecas() {
                           // a linha inteira fica com fundo âmbar mais forte e uma
                           // borda lateral esquerda de indicador; texto de código e
                           // referência continuam pretos (SPEC-158 P2.5), não mudam.
-                          'cursor-pointer transition-colors h-14 border-b border-slate-50 border-l-4',
+                          'cursor-pointer transition-colors h-14',
                           selectedPecaId === p.id
-                            ? 'bg-amber-200/80 hover:bg-amber-200/80 border-l-amber-500'
-                            : 'border-l-transparent hover:bg-slate-50/80',
+                            ? 'bg-amber-200/80 hover:bg-amber-200/80'
+                            : 'hover:bg-slate-50/80',
+                          p.ativo === false && selectedPecaId !== p.id && 'bg-slate-100 text-slate-500',
                         )}
                       >
                         <TableCell className="pl-4 sm:pl-6 pr-2 hidden md:table-cell align-middle py-2">
@@ -439,9 +475,19 @@ export default function Pecas() {
                         </TableCell>
                         <TableCell className="align-middle py-2">
                           <div className="flex items-start gap-2">
-                            <p className="line-clamp-2 text-sm font-medium text-slate-900 leading-snug">
+                            <p
+                              className={cn(
+                                'line-clamp-2 text-sm font-medium leading-snug',
+                                p.ativo === false ? 'text-slate-500' : 'text-slate-900',
+                              )}
+                            >
                               {p.nome}
                             </p>
+                            {p.ativo === false && (
+                              <span className="shrink-0 mt-0.5 text-[9px] text-red-700 font-bold uppercase whitespace-nowrap px-1 py-0.5 rounded bg-red-50 border border-red-200">
+                                Desativada
+                              </span>
+                            )}
                             {!p.has_estoque && (
                               <span className="shrink-0 mt-0.5 text-[9px] text-amber-600 font-bold uppercase whitespace-nowrap px-1 py-0.5 rounded bg-amber-50">
                                 S/E
@@ -453,6 +499,13 @@ export default function Pecas() {
                           <span className="text-sm text-slate-600 block truncate">
                             {p.marca_nome || (
                               <span className="text-slate-400 italic text-xs">Não informada</span>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell align-middle py-2">
+                          <span className="text-sm text-slate-600 block truncate">
+                            {p.categoria || (
+                              <span className="text-slate-400 italic text-xs">—</span>
                             )}
                           </span>
                         </TableCell>

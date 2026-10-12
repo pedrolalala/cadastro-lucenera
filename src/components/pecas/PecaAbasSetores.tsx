@@ -171,14 +171,16 @@ export function PecaAbasSetores({
                 >
                   <span className="flex items-center gap-1.5 font-medium text-slate-700 shrink-0">
                     {s.local}
-                    {isSetorForaDoGeral(s.local) && (
-                      <span className="text-[9px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                        fora do disponível
-                      </span>
-                    )}
                     {destino && <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                   </span>
                   <span className="flex-1 border-b border-dotted border-slate-300 translate-y-1" />
+                  {/* SPEC-195 B5: Casa Cor/Garantia — o aviso fica ao lado do número
+                      e diz com todas as letras que essa quantidade não está disponível. */}
+                  {isSetorForaDoGeral(s.local) && (
+                    <span className="shrink-0 text-[10px] font-semibold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                      não disponível
+                    </span>
+                  )}
                   <span
                     className={cn(
                       'font-semibold tabular-nums text-right min-w-[3ch]',

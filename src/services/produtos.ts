@@ -482,6 +482,11 @@ export interface ProdutoEstoqueRow {
   estoque_reservado: number
   estoque_disponivel: number
   has_estoque: boolean
+  // SPEC-195 B1: alguma quantidade diferente de zero (positiva ou negativa) em
+  // qualquer setor, no Disponível ou no Showroom — base do filtro "Só com estoque".
+  tem_saldo: boolean
+  // SPEC-195 B1: peça desativada também aparece na lista, marcada.
+  ativo: boolean
   // SPEC-151: quantidade real do Showroom, lida direto de produtos.estoque_showroom.
   // NÃO usar estoque_itens(local='Showroom') para isso — o trigger
   // fn_sync_estoque_itens_from_produtos zera essa linha a cada update de produtos.
@@ -497,8 +502,9 @@ export async function getProdutosEstoqueFiltradoBatched(
   batchSize = 500,
   onProgress?: (loaded: number, total: number | null) => void,
 ): Promise<ProdutoEstoqueRow[]> {
+  // SPEC-195 B1 (decisão 11/10): as desativadas também entram, marcadas na tela.
   const applyCommonFilters = (query: any) => {
-    let q = query.eq('ativo', true)
+    let q = query
     if (params.marcaId) q = q.eq('marca_id', params.marcaId)
     if (params.categoriaId) q = q.eq('categoria_id', params.categoriaId)
     return q
@@ -606,6 +612,26 @@ export async function getProdutosEstoqueFiltradoBatched(
       products = products.concat(data || [])
       onProgress?.(products.length, ids.length)
     }
+
+    // SPEC-195 B1: buscar_produtos_fuzzy só devolve peças ativas (e é usada
+    // também no Orçamento, então não muda); as desativadas entram por uma
+    // busca simples de código/referência/descrição, para aparecer marcadas.
+    const termo = params.searchTerm.trim().replace(/[%,()]/g, ' ')
+    if (termo) {
+      const filtros = [`nome.ilike.%${termo}%`, `referencia.ilike.%${termo}%`, `sku.ilike.%${termo}%`]
+      if (/^\d+$/.test(termo)) filtros.push(`codigo_produto.eq.${termo}`)
+      let qInativas = supabase
+        .from('produtos')
+        .select(selectFields)
+        .eq('ativo', false)
+        .or(filtros.join(','))
+        .limit(200)
+      qInativas = applyCommonFilters(qInativas)
+      const { data: inativas, error: inativasError } = await qInativas
+      if (inativasError) throw inativasError
+      const jaTem = new Set(products.map((p: any) => p.id))
+      products = products.concat((inativas || []).filter((p: any) => !jaTem.has(p.id)))
+    }
   } else {
     products = await fetchBatched()
   }
@@ -641,10 +667,18 @@ export async function getProdutosEstoqueFiltradoBatched(
       estoque_disponivel: disponivel,
       has_estoque: estoqueItemsGeral.length > 0,
       estoque_showroom: Number(p.estoque_showroom) || 0,
+      tem_saldo:
+        totalQuantidade !== 0 ||
+        disponivel !== 0 ||
+        (Number(p.estoque_showroom) || 0) !== 0 ||
+        estoqueItems.some((ei: any) => (Number(ei.quantidade) || 0) !== 0),
+      ativo: p.ativo !== false,
     }
   })
 
   rows.sort((a, b) => {
+    // SPEC-195 B1: desativadas sempre no fim da lista.
+    if (a.ativo !== b.ativo) return a.ativo ? -1 : 1
     const aHasStock = a.estoque_disponivel > 0 ? 1 : 0
     const bHasStock = b.estoque_disponivel > 0 ? 1 : 0
     if (aHasStock !== bHasStock) return bHasStock - aHasStock
