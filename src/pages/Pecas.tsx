@@ -166,8 +166,10 @@ export default function Pecas() {
           searchTerm: debouncedSearch || undefined,
           marcaId: marcaId || undefined,
           categoriaId: categoriaId || undefined,
+          // SPEC-193 C1: "Só com estoque" filtrado no banco (com busca, mostra todas).
+          soComSaldo: soComEstoque && !debouncedSearch.trim(),
         },
-        500,
+        1000,
         (loaded, total) => {
           if (minhaCarga === cargaAtual.current) setProgress({ loaded, total })
         },
@@ -180,7 +182,7 @@ export default function Pecas() {
     } finally {
       if (minhaCarga === cargaAtual.current) setLoading(false)
     }
-  }, [debouncedSearch, marcaId, categoriaId, toast])
+  }, [debouncedSearch, marcaId, categoriaId, soComEstoque, toast])
 
   useEffect(() => {
     if (activeModal === null) loadProdutos()

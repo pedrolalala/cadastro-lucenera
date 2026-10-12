@@ -1,8 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
 import { Database } from '@/lib/supabase/types'
-// SPEC-174 N8: Casa Cor/Garantia não entram no estoque geral nem no
-// disponível (decisão "Setor separado", reunião de 01/10).
-import { calcularDisponivel, isSetorForaDoGeral } from '@/lib/estoque-sectors'
 
 type Produto = Database['public']['Tables']['produtos']['Row']
 type ProdutoInsert = Database['public']['Tables']['produtos']['Insert']
@@ -521,15 +518,49 @@ export interface ProdutoEstoqueRow {
   estoque_showroom: number
 }
 
+// SPEC-193 C1/C3/C4: a Consulta lê a view enxuta `vw_consulta_estoque` (migration 204), que já devolve
+// os saldos calculados no banco com a mesma conta de calcularDisponivel (SPEC-191 B1): Geral − maior
+// (reserva + separação do sistema, reserva da Connect). Antes a tela trazia a tabela `produtos` inteira
+// em lotes de 500 com estoque_itens embutido e fazia a conta aqui (≈6 s); agora ≈1,5 s com o filtro
+// "Só com estoque" aplicado no banco.
+const CONSULTA_COLUNAS = `
+  produto_id, codigo_produto, referencia, nome, ativo, preco_venda, valor_venda, marca_nome,
+  categoria_nome, estoque_total, estoque_reservado, estoque_disponivel, estoque_showroom,
+  has_estoque, tem_saldo
+`
+
+function linhaConsulta(r: any): ProdutoEstoqueRow {
+  return {
+    id: r.produto_id,
+    nome: r.nome,
+    codigo_produto: r.codigo_produto,
+    referencia: r.referencia,
+    categoria: r.categoria_nome || null,
+    valor_venda: r.valor_venda,
+    preco_venda: r.preco_venda,
+    marca_nome: r.marca_nome || null,
+    estoque_total: Number(r.estoque_total) || 0,
+    estoque_reservado: Number(r.estoque_reservado) || 0,
+    estoque_disponivel: Number(r.estoque_disponivel) || 0,
+    has_estoque: r.has_estoque === true,
+    estoque_showroom: Number(r.estoque_showroom) || 0,
+    tem_saldo: r.tem_saldo === true,
+    ativo: r.ativo !== false,
+  }
+}
+
 export async function getProdutosEstoqueFiltradoBatched(
   params: {
     searchTerm?: string
     marcaId?: string
     categoriaId?: string
+    // SPEC-195 B1: "Só com estoque" — sem busca, filtra no banco.
+    soComSaldo?: boolean
   },
-  batchSize = 500,
+  batchSize = 1000,
   onProgress?: (loaded: number, total: number | null) => void,
 ): Promise<ProdutoEstoqueRow[]> {
+  const consulta = () => (supabase.from as any)('vw_consulta_estoque').select(CONSULTA_COLUNAS)
   // SPEC-195 B1 (decisão 11/10): as desativadas também entram, marcadas na tela.
   const applyCommonFilters = (query: any) => {
     let q = query
@@ -538,79 +569,14 @@ export async function getProdutosEstoqueFiltradoBatched(
     return q
   }
 
-  const selectFields = `
-    id, nome, codigo_produto, referencia, descricao_tecnica,
-    preco_venda, valor_venda, ativo, estoque_showroom,
-    marca:marcas(nome),
-    categoria_rel:categorias_produto(nome),
-    estoque:estoque_itens(id, local, quantidade, quantidade_reservada)
-  `
-
-  const fetchBatched = async (extraFilterFn?: (q: any) => any): Promise<any[]> => {
-    let countQuery = supabase.from('produtos').select('id', { count: 'exact', head: true })
-    countQuery = applyCommonFilters(countQuery)
-    if (extraFilterFn) countQuery = extraFilterFn(countQuery)
-    const { count } = await countQuery
-
-    let allProducts: any[] = []
-    let offset = 0
-    let hasMore = true
-
-    while (hasMore) {
-      let query = supabase
-        .from('produtos')
-        .select(selectFields)
-        .order('nome')
-        .range(offset, offset + batchSize - 1)
-      query = applyCommonFilters(query)
-      if (extraFilterFn) query = extraFilterFn(query)
-
-      const { data, error } = await query
-      if (error) throw error
-      if (!data || data.length === 0) {
-        hasMore = false
-      } else {
-        allProducts = [...allProducts, ...data]
-        onProgress?.(allProducts.length, count ?? null)
-        if (data.length < batchSize) {
-          hasMore = false
-        } else {
-          offset += batchSize
-        }
-      }
-    }
-
-    return allProducts
-  }
-
-  // SPEC-191 B1: reserva + separação do sistema por peça, para a coluna
-  // Disponível da lista bater com o destaque do painel (calcularDisponivel).
-  const saldosPorProduto = new Map<string, { q_reserva: number; q_separacao: number }>()
-  for (let from = 0; ; from += 1000) {
-    const { data: saldos, error: saldosError } = await (supabase.from as any)(
-      'vw_cadastro_produto_setores',
-    )
-      .select('produto_id, q_reserva, q_separacao')
-      .range(from, from + 999)
-    if (saldosError) throw saldosError
-    for (const r of saldos || []) {
-      saldosPorProduto.set(r.produto_id, {
-        q_reserva: Number(r.q_reserva) || 0,
-        q_separacao: Number(r.q_separacao) || 0,
-      })
-    }
-    if (!saldos || saldos.length < 1000) break
-  }
-
   let products: any[] = []
 
   if (params.searchTerm) {
     // SPEC-116 (piloto 1): busca universal via RPC buscar_produtos_fuzzy
     // (SPEC-100, estendida) — um termo (ou vários, em qualquer ordem) casa
-    // contra nome/sku/referencia/codigo_produto/descricao_tecnica/marca/
+    // contra nome/referencia/codigo_produto/descricao_tecnica/marca/
     // categoria, tolerando acento e erro de digitação. A RPC resolve QUAIS
-    // produtos casam; a busca abaixo continua trazendo os campos de estoque
-    // (que a RPC não retorna) só para esses ids.
+    // produtos casam; os saldos vêm da vw_consulta_estoque só para esses ids.
     const { data: matches, error: matchError } = await (supabase.rpc as any)(
       'buscar_produtos_fuzzy',
       {
@@ -624,18 +590,12 @@ export async function getProdutosEstoqueFiltradoBatched(
     if (matchError) throw matchError
     const ids = (matches || []).map((m: any) => m.id)
 
-    // Bug achado ao testar ao vivo (SPEC-116): termos genéricos ("spot",
-    // "interlight") casavam centenas/milhares de produtos, e mandar todos
-    // os ids de uma vez via `.in('id', ids)` gerava uma URL de ~40-70KB —
-    // estourava o limite de tamanho de URL do servidor e a busca falhava
-    // ("Falha ao carregar as peças"). Buscar em lotes pequenos de ids
-    // evita isso.
+    // Bug achado ao testar ao vivo (SPEC-116): mandar centenas de ids de uma
+    // vez via `.in()` estourava o limite de tamanho de URL — lotes pequenos.
     const ID_CHUNK_SIZE = 150
     for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
       const chunk = ids.slice(i, i + ID_CHUNK_SIZE)
-      let query = supabase.from('produtos').select(selectFields).in('id', chunk)
-      query = applyCommonFilters(query)
-      const { data, error } = await query
+      const { data, error } = await applyCommonFilters(consulta().in('produto_id', chunk))
       if (error) throw error
       products = products.concat(data || [])
       onProgress?.(products.length, ids.length)
@@ -648,60 +608,37 @@ export async function getProdutosEstoqueFiltradoBatched(
     if (termo) {
       const filtros = [`nome.ilike.%${termo}%`, `referencia.ilike.%${termo}%`]
       if (/^\d+$/.test(termo)) filtros.push(`codigo_produto.eq.${termo}`)
-      let qInativas = supabase
-        .from('produtos')
-        .select(selectFields)
-        .eq('ativo', false)
-        .or(filtros.join(','))
-        .limit(200)
-      qInativas = applyCommonFilters(qInativas)
-      const { data: inativas, error: inativasError } = await qInativas
+      const { data: inativas, error: inativasError } = await applyCommonFilters(
+        consulta().eq('ativo', false).or(filtros.join(',')).limit(200),
+      )
       if (inativasError) throw inativasError
-      const jaTem = new Set(products.map((p: any) => p.id))
-      products = products.concat((inativas || []).filter((p: any) => !jaTem.has(p.id)))
+      const jaTem = new Set(products.map((p: any) => p.produto_id))
+      products = products.concat((inativas || []).filter((p: any) => !jaTem.has(p.produto_id)))
     }
   } else {
-    products = await fetchBatched()
+    let countQuery = (supabase.from as any)('vw_consulta_estoque').select('produto_id', {
+      count: 'exact',
+      head: true,
+    })
+    countQuery = applyCommonFilters(countQuery)
+    if (params.soComSaldo) countQuery = countQuery.eq('tem_saldo', true)
+    const { count } = await countQuery
+
+    for (let offset = 0; ; offset += batchSize) {
+      let query = applyCommonFilters(consulta())
+      if (params.soComSaldo) query = query.eq('tem_saldo', true)
+      const { data, error } = await query
+        .order('nome')
+        .order('produto_id')
+        .range(offset, offset + batchSize - 1)
+      if (error) throw error
+      products = products.concat(data || [])
+      onProgress?.(products.length, count ?? null)
+      if (!data || data.length < batchSize) break
+    }
   }
 
-  const rows: ProdutoEstoqueRow[] = products.map((p) => {
-    const marcaNome = p.marca?.nome || null
-    // SPEC-193 B1: a categoria é sempre a de categoria_id (a coluna texto `categoria` está vazia).
-    const categoriaNome = p.categoria_rel?.nome || null
-    const estoqueItems = Array.isArray(p.estoque) ? p.estoque : []
-    // SPEC-174 N8: Estoque Total/Disponível (colunas da lista) não somam
-    // Casa Cor/Garantia -- esses setores ficam visíveis só no painel de
-    // detalhes (PecaDetailsPanel.tsx), fora do estoque geral.
-    const estoqueItemsGeral = estoqueItems.filter((ei: any) => !isSetorForaDoGeral(ei.local))
-
-    const {
-      geral: totalQuantidade,
-      comprometido: totalReservada,
-      disponivel,
-    } = calcularDisponivel(estoqueItemsGeral, saldosPorProduto.get(p.id))
-
-    return {
-      id: p.id,
-      nome: p.nome,
-      codigo_produto: p.codigo_produto,
-      referencia: p.referencia,
-      categoria: categoriaNome,
-      valor_venda: p.valor_venda,
-      preco_venda: p.preco_venda,
-      marca_nome: marcaNome,
-      estoque_total: totalQuantidade,
-      estoque_reservado: totalReservada,
-      estoque_disponivel: disponivel,
-      has_estoque: estoqueItemsGeral.length > 0,
-      estoque_showroom: Number(p.estoque_showroom) || 0,
-      tem_saldo:
-        totalQuantidade !== 0 ||
-        disponivel !== 0 ||
-        (Number(p.estoque_showroom) || 0) !== 0 ||
-        estoqueItems.some((ei: any) => (Number(ei.quantidade) || 0) !== 0),
-      ativo: p.ativo !== false,
-    }
-  })
+  const rows: ProdutoEstoqueRow[] = products.map(linhaConsulta)
 
   rows.sort((a, b) => {
     // SPEC-195 B1: desativadas sempre no fim da lista.
