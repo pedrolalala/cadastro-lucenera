@@ -60,9 +60,9 @@ const SORT_COLS: { key: SortKey; label: string }[] = [
 function getSortValue(row: any, key: SortKey): string | number {
   switch (key) {
     case 'codigo_produto':
-      return row.codigo_produto ?? row.codigo_legado ?? 0
+      return row.codigo_produto ?? 0
     case 'referencia':
-      return row.referencia || row.sku || ''
+      return row.referencia || ''
     case 'nome':
       return row.nome || ''
     case 'marca_nome':
@@ -210,9 +210,7 @@ export default function Pecas() {
     return {
       id: row.id,
       nome: row.nome,
-      sku: row.sku,
       codigo_produto: row.codigo_produto,
-      codigo_legado: row.codigo_legado,
       referencia: row.referencia,
       categoria: row.categoria,
       marca_nome: row.marca_nome,
@@ -465,12 +463,12 @@ export default function Pecas() {
                               discreto (fonte pequena, badge da referência),
                               mas com o texto preto/quase preto. */}
                           <span className="font-mono text-xs text-slate-900 whitespace-nowrap">
-                            {p.codigo_produto ?? p.codigo_legado ?? '-'}
+                            {p.codigo_produto ?? '-'}
                           </span>
                         </TableCell>
                         <TableCell className="pl-4 sm:pl-6 md:pl-2 align-middle py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-slate-900 font-mono text-xs font-semibold whitespace-nowrap">
-                            {p.referencia || p.sku || '-'}
+                            {p.referencia || '-'}
                           </span>
                         </TableCell>
                         <TableCell className="align-middle py-2">

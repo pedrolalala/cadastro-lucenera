@@ -53,7 +53,7 @@ import {
   createProduto,
   updateProduto,
   deleteProduto,
-  checkSkuExists,
+  checkReferenciaExists,
   getFornecedores,
   getMarcas,
   getCategoriasProduto,
@@ -70,7 +70,6 @@ import {
 // abaixo); o campo Referência começa vazio em peça nova.
 
 const schema = z.object({
-  sku: z.string().optional(),
   nome: z.string().min(2, 'Obrigatório'),
   marca_id: z.string().min(1, 'Obrigatório'),
   categoria_id: z.string().min(1, 'Obrigatório'),
@@ -469,7 +468,6 @@ export function PecaForm({
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      sku: '',
       nome: '',
       marca_id: '',
       categoria_id: '',
@@ -637,7 +635,6 @@ export function PecaForm({
           // até o campo). sku/referencia/descricao_tecnica/ncm/tipo_fiscal
           // precisam do mesmo fallback que cst/cest/mascara_produto/
           // status_comercial já tinham.
-          sku: (data as any).sku || '',
           referencia: (data as any).referencia || '',
           descricao_tecnica: (data as any).descricao_tecnica || '',
           ncm: (data as any).ncm || '',
@@ -703,11 +700,15 @@ export function PecaForm({
     async (v: FormData) => {
       setLoading(true)
       try {
-        if (v.sku && (await checkSkuExists(v.sku, pecaId)))
-          return form.setError('sku', { message: 'Em uso' })
+        // SPEC-193 B3: o campo "Referência" grava em `referencia` (antes gravava em `sku`, cópia que
+        // vai sair do banco). Até lá, `sku` acompanha a referência para não ficar desatualizado.
+        const referencia = v.referencia?.trim() || null
+        if (referencia && (await checkReferenciaExists(referencia, pecaId)))
+          return form.setError('referencia', { message: 'Em uso' })
         const payload = {
           ...v,
-          sku: v.sku?.trim() === '' ? null : v.sku,
+          referencia,
+          sku: referencia,
           fornecedor_principal_id:
             v.fornecedor_principal_id === 'none' ? null : v.fornecedor_principal_id,
         } as any
@@ -752,7 +753,7 @@ export function PecaForm({
                     value={codigoProdutoAtual ?? (pecaId ? '' : 'gerado automaticamente ao salvar')}
                   />
                 </div>
-                <InputField control={form.control} name="sku" label="Referência" />
+                <InputField control={form.control} name="referencia" label="Referência" />
               </div>
               <InputField control={form.control} name="nome" label="Nome *" />
               <div className="grid grid-cols-2 gap-2">

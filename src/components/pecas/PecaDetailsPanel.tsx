@@ -26,9 +26,7 @@ const formatCurrency = (v: number | null | undefined) =>
 interface PecaData {
   id: string
   nome: string
-  sku: string | null
   codigo_produto?: number | null
-  codigo_legado?: number | null
   referencia: string | null
   categoria?: string | null
   marca_nome?: string | null
@@ -186,7 +184,7 @@ export function PecaDetailsPanel({
     )
   }
 
-  const codigoDisplay = peca.codigo_produto ?? peca.codigo_legado ?? '-'
+  const codigoDisplay = peca.codigo_produto ?? '-'
 
   // SPEC-182 (C2): cabeçalho fixo no modelo do Connect — Código, Referência,
   // Descrição, Valor de Venda e Disponível em destaque (negativo em vermelho).
@@ -196,7 +194,7 @@ export function PecaDetailsPanel({
         <div className="flex flex-col lg:flex-row lg:items-end gap-4">
           <div className="grid flex-1 min-w-0 grid-cols-2 md:grid-cols-[110px_160px_1fr_140px] gap-x-4 gap-y-3">
             <Campo rotulo="Código" valor={String(codigoDisplay)} mono />
-            <Campo rotulo="Referência" valor={peca.referencia || peca.sku || '-'} mono />
+            <Campo rotulo="Referência" valor={peca.referencia || '-'} mono />
             <Campo
               rotulo="Descrição"
               valor={peca.nome}

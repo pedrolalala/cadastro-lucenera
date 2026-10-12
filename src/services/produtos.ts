@@ -13,8 +13,8 @@ type ProdutoUpdate = Database['public']['Tables']['produtos']['Update']
 // para leitura direta; o custo vem de `vw_produtos_custo`, que só devolve linhas para quem está em
 // `produto_custo_visualizadores`. Por isso nada aqui pode ler `produtos` com '*'.
 export const PRODUTO_COLUNAS = `
-  id, marca_id, nome, sku, categoria, preco_venda, ativo, created_at, updated_at, codigo_produto,
-  referencia, estoque_total, estoque_showroom, estoque_disponivel, unidade, valor_venda, codigo_legado,
+  id, marca_id, nome, preco_venda, ativo, created_at, updated_at, codigo_produto,
+  referencia, estoque_total, estoque_showroom, estoque_disponivel, unidade, valor_venda,
   categoria_id, fornecedor_principal_id, descricao_tecnica, ncm, tipo_fiscal, cst, cest,
   status_comercial, mascara_produto, prazo_entrega_dias, multiplo_compra, estoque_minimo,
   imagem_showroom_url, grupo_fiscal_nao_contribuinte, grupo_fiscal_revenda, tem_st
@@ -88,9 +88,11 @@ export async function getProduto(id: string) {
   return { ...(data as any), ...(custo || {}) }
 }
 
-export async function checkSkuExists(sku: string, excludeId?: string | null) {
-  if (!sku) return false
-  let query = supabase.from('produtos').select('id').eq('sku', sku)
+// SPEC-193 B3: a Referência é o único código do fornecedor (sku/codigo_legado eram cópias e
+// vão sair do banco). Não deixar duas peças com a mesma referência.
+export async function checkReferenciaExists(referencia: string, excludeId?: string | null) {
+  if (!referencia) return false
+  let query = supabase.from('produtos').select('id').eq('referencia', referencia)
   if (excludeId) {
     query = query.neq('id', excludeId)
   }
@@ -376,38 +378,6 @@ export async function getFornecedorSugeridoProduto(
   return data as FornecedorSugeridoProdutoRow | null
 }
 
-export async function getNextSku(prefix: string = 'teste') {
-  try {
-    const { data, error } = await (supabase.rpc as any)('get_next_sku', { prefix })
-    if (!error && data) {
-      return data as string
-    }
-  } catch (err) {
-    console.warn('RPC get_next_sku failed, using JS fallback', err)
-  }
-
-  const { data: fallbackData, error: fallbackError } = await supabase
-    .from('produtos')
-    .select('sku')
-    .like('sku', `${prefix}%`)
-
-  if (fallbackError) throw fallbackError
-
-  let maxNum = 0
-  for (const row of fallbackData || []) {
-    if (!row.sku) continue
-    const numStr = row.sku.substring(prefix.length).replace(/[^0-9]/g, '')
-    if (numStr) {
-      const num = parseInt(numStr, 10)
-      if (!isNaN(num) && num > maxNum) {
-        maxNum = num
-      }
-    }
-  }
-
-  return `${prefix}${(maxNum + 1).toString().padStart(2, '0')}`
-}
-
 export async function getAllProdutosBatched(
   batchSize = 500,
   onProgress?: (loaded: number, total: number | null) => void,
@@ -467,10 +437,10 @@ export async function getProdutosFiltradosBatched(
       const numeric = term.replace(/[^0-9]/g, '')
       if (numeric) {
         q = q.or(
-          `nome.ilike.%${term}%,sku.ilike.%${term}%,referencia.ilike.%${term}%,codigo_produto.eq.${numeric}`,
+          `nome.ilike.%${term}%,referencia.ilike.%${term}%,codigo_produto.eq.${numeric}`,
         )
       } else {
-        q = q.or(`nome.ilike.%${term}%,sku.ilike.%${term}%,referencia.ilike.%${term}%`)
+        q = q.or(`nome.ilike.%${term}%,referencia.ilike.%${term}%`)
       }
     }
     return q
@@ -530,9 +500,7 @@ export async function getProdutoEstoqueDetalhado(produtoId: string) {
 export interface ProdutoEstoqueRow {
   id: string
   nome: string
-  sku: string | null
   codigo_produto: number | null
-  codigo_legado: number | null
   referencia: string | null
   categoria: string | null
   valor_venda: number | null
@@ -571,7 +539,7 @@ export async function getProdutosEstoqueFiltradoBatched(
   }
 
   const selectFields = `
-    id, nome, sku, codigo_produto, codigo_legado, referencia, categoria, descricao_tecnica,
+    id, nome, codigo_produto, referencia, descricao_tecnica,
     preco_venda, valor_venda, ativo, estoque_showroom,
     marca:marcas(nome),
     categoria_rel:categorias_produto(nome),
@@ -678,7 +646,7 @@ export async function getProdutosEstoqueFiltradoBatched(
     // busca simples de código/referência/descrição, para aparecer marcadas.
     const termo = params.searchTerm.trim().replace(/[%,()]/g, ' ')
     if (termo) {
-      const filtros = [`nome.ilike.%${termo}%`, `referencia.ilike.%${termo}%`, `sku.ilike.%${termo}%`]
+      const filtros = [`nome.ilike.%${termo}%`, `referencia.ilike.%${termo}%`]
       if (/^\d+$/.test(termo)) filtros.push(`codigo_produto.eq.${termo}`)
       let qInativas = supabase
         .from('produtos')
@@ -698,7 +666,8 @@ export async function getProdutosEstoqueFiltradoBatched(
 
   const rows: ProdutoEstoqueRow[] = products.map((p) => {
     const marcaNome = p.marca?.nome || null
-    const categoriaNome = p.categoria_rel?.nome || p.categoria || null
+    // SPEC-193 B1: a categoria é sempre a de categoria_id (a coluna texto `categoria` está vazia).
+    const categoriaNome = p.categoria_rel?.nome || null
     const estoqueItems = Array.isArray(p.estoque) ? p.estoque : []
     // SPEC-174 N8: Estoque Total/Disponível (colunas da lista) não somam
     // Casa Cor/Garantia -- esses setores ficam visíveis só no painel de
@@ -714,9 +683,7 @@ export async function getProdutosEstoqueFiltradoBatched(
     return {
       id: p.id,
       nome: p.nome,
-      sku: p.sku,
       codigo_produto: p.codigo_produto,
-      codigo_legado: p.codigo_legado,
       referencia: p.referencia,
       categoria: categoriaNome,
       valor_venda: p.valor_venda,
