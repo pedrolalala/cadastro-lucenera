@@ -349,7 +349,11 @@ export default function Pecas() {
             <div className="overflow-auto flex-1" onScroll={handleScroll}>
               {/* SPEC-195 B4: linhas da tabela em preto, estilo planilha do sistema
                   operacional (no computador do Vinícius as linhas claras sumiam). */}
-              <Table className="w-full table-fixed border-collapse [&_td]:border [&_td]:border-black [&_th]:border [&_th]:border-black">
+              {/* Cabeçalho congelado: a rolagem é só da div de fora (overflow-visible no invólucro da tabela). */}
+              <Table
+                containerClassName="overflow-visible"
+                className="w-full table-fixed border-collapse [&_td]:border [&_td]:border-black [&_th]:border [&_th]:border-black"
+              >
                 <TableHeader className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <TableRow className="h-11">
                     {SORT_COLS.map((col) => {
@@ -381,6 +385,8 @@ export default function Pecas() {
                           className={cn(
                             widthClass,
                             'text-slate-600 font-semibold text-xs uppercase tracking-wide',
+                            // a borda "colapsada" não acompanha a célula fixa; a sombra desenha as linhas
+                            'sticky top-0 z-10 bg-slate-50 shadow-[inset_1px_0_0_#000,inset_0_1px_0_#000,inset_0_-1px_0_#000]',
                           )}
                         >
                           <button
