@@ -117,7 +117,25 @@ export function PecaAbasSetores({
     setAba('setores')
   }, [pecaId])
 
-  const linhasDaAba = (a: AbaMovimento) => movimentos.filter((m) => qtdDoSetor(m, a) > 0)
+  // SPEC-222: uma linha por venda (a mesma peça em vários L da venda vira uma linha, com a quantidade somada
+  // e os L listados) — por L ficava repetido.
+  const linhasDaAba = (a: AbaMovimento) => {
+    const porVenda = new Map<string, { m: MovimentoProdutoRow; qtd: number; devolvida: number; ls: string[] }>()
+    for (const m of movimentos) {
+      const q = qtdDoSetor(m, a)
+      if (q <= 0) continue
+      const chave = m.orcamento_id ?? m.projeto_item_id
+      const atual = porVenda.get(chave)
+      if (atual) {
+        atual.qtd += q
+        atual.devolvida += m.q_devolvida_entregue || 0
+        if (m.l_fixo) atual.ls.push(m.l_fixo)
+      } else {
+        porVenda.set(chave, { m, qtd: q, devolvida: m.q_devolvida_entregue || 0, ls: m.l_fixo ? [m.l_fixo] : [] })
+      }
+    }
+    return Array.from(porVenda.entries()).map(([chave, v]) => ({ chave, ...v }))
+  }
   const abaDoSetor = (local: string) => ABAS_MOVIMENTO.find((x) => x.setor === local)?.aba
 
   return (
@@ -126,19 +144,12 @@ export function PecaAbasSetores({
         <TabsTrigger value="setores" className="data-[state=active]:bg-white">
           Setores
         </TabsTrigger>
-        {ABAS_MOVIMENTO.map(({ aba: a, rotulo }) => {
-          const n = linhasDaAba(a).length
-          return (
-            <TabsTrigger key={a} value={a} className="gap-1.5 data-[state=active]:bg-white">
-              {rotulo}
-              {n > 0 && (
-                <span className="rounded-full bg-slate-200 px-1.5 text-[10px] font-semibold text-slate-700">
-                  {n}
-                </span>
-              )}
-            </TabsTrigger>
-          )
-        })}
+        {/* SPEC-222: sem o número ao lado do nome (contava linhas, não peças, e confundia) */}
+        {ABAS_MOVIMENTO.map(({ aba: a, rotulo }) => (
+          <TabsTrigger key={a} value={a} className="data-[state=active]:bg-white">
+            {rotulo}
+          </TabsTrigger>
+        ))}
         <TabsTrigger value="compras" className="gap-1.5 data-[state=active]:bg-white">
           Compras
           {pedidos.length > 0 && (
@@ -226,8 +237,8 @@ export function PecaAbasSetores({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {linhas.map((m) => (
-                      <TableRow key={m.projeto_item_id} className="h-10 hover:bg-slate-50">
+                    {linhas.map(({ chave, m, qtd, devolvida, ls }) => (
+                      <TableRow key={chave} className="h-10 hover:bg-slate-50">
                         <TableCell className="py-2 px-3 text-xs font-mono">
                           {semPrefixo(m.orcamento_numero) || '-'}
                         </TableCell>
@@ -244,13 +255,13 @@ export function PecaAbasSetores({
                           {m.projeto_codigo || '-'}
                         </TableCell>
                         <TableCell className="py-2 px-3 text-xs font-mono">
-                          {m.l_fixo || '-'}
+                          {ls.length > 0 ? ls.join(', ') : '-'}
                         </TableCell>
                         <TableCell className="py-2 px-3 text-xs text-right font-semibold tabular-nums">
-                          {qtdDoSetor(m, a)}
-                          {a === 'entregue' && m.q_devolvida_entregue > 0 && (
+                          {qtd}
+                          {a === 'entregue' && devolvida > 0 && (
                             <div className="text-[10px] font-normal text-slate-500">
-                              {m.q_devolvida_entregue} devolvida(s)
+                              {devolvida} devolvida(s)
                             </div>
                           )}
                         </TableCell>
