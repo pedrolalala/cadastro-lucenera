@@ -16,28 +16,21 @@ import { cn } from '@/lib/utils'
 
 // SPEC-182 (C2, decisões do usuário 06/10): consulta de peça com abas por setor
 // no modelo do Connect. "Setores" = visão consolidada (setor + quantidade);
-// Reserva / Entrega Futura / Separação / Entregue têm as mesmas colunas e só
-// mudam o filtro; Compras lista os pedidos de compra ativos da peça. Entregue é
-// só histórico (sem ação de devolução — a devolução é pelo orçamento).
+// Reserva / Entrega Futura / Separação têm as mesmas colunas e só mudam o
+// filtro; Compras lista os pedidos de compra ativos da peça. SPEC-222: a aba
+// Entregue saiu (histórico que não serve na consulta da peça).
 
-type AbaMovimento = 'reserva' | 'entrega_futura' | 'separacao' | 'entregue'
+type AbaMovimento = 'reserva' | 'entrega_futura' | 'separacao'
 type Aba = 'setores' | AbaMovimento | 'compras'
 
 const ABAS_MOVIMENTO: { aba: AbaMovimento; rotulo: string; setor: string }[] = [
   { aba: 'reserva', rotulo: 'Reserva', setor: 'Reserva' },
   { aba: 'entrega_futura', rotulo: 'Entrega Futura', setor: 'Entrega Futura' },
   { aba: 'separacao', rotulo: 'Separação', setor: 'Separação' },
-  { aba: 'entregue', rotulo: 'Entregue', setor: 'Entregue' },
 ]
 
 const qtdDoSetor = (m: MovimentoProdutoRow, aba: AbaMovimento) =>
-  aba === 'reserva'
-    ? m.q_reserva
-    : aba === 'entrega_futura'
-      ? m.q_entrega_futura
-      : aba === 'separacao'
-        ? m.q_separacao
-        : m.q_entregue
+  aba === 'reserva' ? m.q_reserva : aba === 'entrega_futura' ? m.q_entrega_futura : m.q_separacao
 
 const semPrefixo = (n: string | null | undefined) => (n || '').replace(/^(VENDA|ORC)-/i, '')
 
@@ -120,7 +113,7 @@ export function PecaAbasSetores({
   // SPEC-222: uma linha por venda (a mesma peça em vários L da venda vira uma linha, com a quantidade somada
   // e os L listados) — por L ficava repetido.
   const linhasDaAba = (a: AbaMovimento) => {
-    const porVenda = new Map<string, { m: MovimentoProdutoRow; qtd: number; devolvida: number; ls: string[] }>()
+    const porVenda = new Map<string, { m: MovimentoProdutoRow; qtd: number; ls: string[] }>()
     for (const m of movimentos) {
       const q = qtdDoSetor(m, a)
       if (q <= 0) continue
@@ -128,10 +121,9 @@ export function PecaAbasSetores({
       const atual = porVenda.get(chave)
       if (atual) {
         atual.qtd += q
-        atual.devolvida += m.q_devolvida_entregue || 0
         if (m.l_fixo) atual.ls.push(m.l_fixo)
       } else {
-        porVenda.set(chave, { m, qtd: q, devolvida: m.q_devolvida_entregue || 0, ls: m.l_fixo ? [m.l_fixo] : [] })
+        porVenda.set(chave, { m, qtd: q, ls: m.l_fixo ? [m.l_fixo] : [] })
       }
     }
     return Array.from(porVenda.entries()).map(([chave, v]) => ({ chave, ...v }))
@@ -237,7 +229,7 @@ export function PecaAbasSetores({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {linhas.map(({ chave, m, qtd, devolvida, ls }) => (
+                    {linhas.map(({ chave, m, qtd, ls }) => (
                       <TableRow key={chave} className="h-10 hover:bg-slate-50">
                         <TableCell className="py-2 px-3 text-xs font-mono">
                           {semPrefixo(m.orcamento_numero) || '-'}
@@ -259,11 +251,6 @@ export function PecaAbasSetores({
                         </TableCell>
                         <TableCell className="py-2 px-3 text-xs text-right font-semibold tabular-nums">
                           {qtd}
-                          {a === 'entregue' && devolvida > 0 && (
-                            <div className="text-[10px] font-normal text-slate-500">
-                              {devolvida} devolvida(s)
-                            </div>
-                          )}
                         </TableCell>
                         <TableCell className="py-2 px-3 text-xs whitespace-nowrap">
                           {formatDate(m.data_venda)}
