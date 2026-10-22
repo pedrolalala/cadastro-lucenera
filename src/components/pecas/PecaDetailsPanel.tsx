@@ -156,19 +156,12 @@ export function PecaDetailsPanel({
   // SPEC-191 B1: a conta é a mesma da coluna Disponível da lista.
   const totalDisponivel = calcularDisponivel(estoqueData, setoresSaldos).disponivel
 
-  // SPEC-174 N6c: os 8 setores obrigatórios, sempre visíveis. SPEC-182 (C2):
-  // mais "Entregue" (o que ainda está com o cliente: entregue − devolvido),
-  // logo depois de Entrega Futura, na aba consolidada "Setores".
-  const setores = useMemo(() => {
-    const base = buildSetoresObrigatorios(estoqueData, estoqueShowroom, setoresSaldos)
-    const entregue = movimentos.reduce(
-      (soma, m) => soma + Math.max(0, m.q_entregue - m.q_devolvida_entregue),
-      0,
-    )
-    const i = base.findIndex((x) => x.local === 'Entrega Futura')
-    const linha = { local: 'Entregue', quantidade: entregue, extra: false }
-    return i >= 0 ? [...base.slice(0, i + 1), linha, ...base.slice(i + 1)] : [...base, linha]
-  }, [estoqueData, estoqueShowroom, setoresSaldos, movimentos])
+  // SPEC-174 N6c: os 8 setores obrigatórios, sempre visíveis. SPEC-222: a linha
+  // "Entregue" (SPEC-182) saiu junto com a aba — informação que não serve aqui.
+  const setores = useMemo(
+    () => buildSetoresObrigatorios(estoqueData, estoqueShowroom, setoresSaldos),
+    [estoqueData, estoqueShowroom, setoresSaldos],
+  )
 
   if (!peca) {
     return (
