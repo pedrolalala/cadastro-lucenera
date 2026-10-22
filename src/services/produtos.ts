@@ -346,7 +346,15 @@ export async function getPedidosCompraEmTransito(
     .select('*')
     .eq('produto_id', produtoId)
   if (error) throw error
-  return (data || []) as PedidoCompraEmTransitoRow[]
+  // SPEC-222 H1: a view traz uma linha por item do pedido (um por L) — aqui é uma linha por pedido,
+  // com a quantidade somada (nº do pedido, quantidade, emissão e previsão; sem cliente).
+  const porPedido = new Map<string, PedidoCompraEmTransitoRow>()
+  for (const r of (data || []) as PedidoCompraEmTransitoRow[]) {
+    const atual = porPedido.get(r.pedido_id)
+    if (atual) atual.qtd_pendente = Number(atual.qtd_pendente) + Number(r.qtd_pendente)
+    else porPedido.set(r.pedido_id, { ...r, qtd_pendente: Number(r.qtd_pendente) })
+  }
+  return Array.from(porPedido.values())
 }
 
 // SPEC-049 (seção adicional "Fornecedor Sugerido"): sugestão de compra por

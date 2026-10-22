@@ -124,6 +124,21 @@ export function buildSetoresObrigatorios(
     .map(([local, quantidade]) => ({ local, quantidade, extra: true }))
     .sort((a, b) => b.quantidade - a.quantidade)
 
+  // SPEC-222 A6/H2: reserva que veio da Connect sem venda no sistema (herança, sem histórico). É a parte de
+  // quantidade_reservada que não corresponde a nenhum L daqui (reserva + entrega futura + separação — a
+  // aprovação do orçamento reserva a venda inteira). Mostrada à parte para não confundir com a Reserva.
+  const reservadoConnect = estoqueItens
+    .filter((ei: any) => LOCAIS_ESTOQUE_GERAL.includes(ei.local || 'Estoque'))
+    .reduce((s: number, ei: any) => s + (Number(ei.quantidade_reservada) || 0), 0)
+  const heranca =
+    reservadoConnect -
+    (Number(saldos?.q_reserva) || 0) -
+    (Number(saldos?.q_entrega_futura) || 0) -
+    (Number(saldos?.q_separacao) || 0)
+  if (heranca > 0.0001) {
+    extras.push({ local: 'Reserva sem venda (herança Connect)', quantidade: heranca, extra: true })
+  }
+
   return [
     ...SETORES_OBRIGATORIOS.map((local) => ({ local, quantidade: valores[local], extra: false })),
     ...extras,
