@@ -32,7 +32,8 @@ import { CheckCircle } from 'lucide-react'
 
 const schema = z.object({
   id: z.string().optional(),
-  codigo: z.string().min(1, 'Código é obrigatório'),
+  // SPEC-228: código só leitura — o oficial vem do fluxo do SharePoint.
+  codigo: z.string().optional(),
   nome: z.string().min(2, 'Nome é obrigatório'),
   cliente_id: z.string().min(1, 'Cliente é obrigatório'),
   arquiteto_id: z.string().optional().nullable(),
@@ -138,19 +139,7 @@ export function ProjetoFormDialog({
   const onSubmit = async (values: FormData) => {
     setLoading(true)
 
-    const query = supabase.from('projetos').select('id').eq('codigo', values.codigo)
-    if (values.id) query.neq('id', values.id)
-
-    const { data: existing } = await query.maybeSingle()
-
-    if (existing) {
-      form.setError('codigo', { message: 'Este código já está em uso.' })
-      setLoading(false)
-      return
-    }
-
     const payload = {
-      codigo: values.codigo,
       nome: values.nome,
       cliente_id: values.cliente_id,
       arquiteto_id:
@@ -240,7 +229,12 @@ export function ProjetoFormDialog({
                   <FormItem>
                     <FormLabel>Código</FormLabel>
                     <FormControl>
-                      <Input placeholder="EX: PRJ-001" {...field} />
+                      <Input
+                        placeholder="Gerado pelo SharePoint em alguns minutos"
+                        readOnly
+                        disabled
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
