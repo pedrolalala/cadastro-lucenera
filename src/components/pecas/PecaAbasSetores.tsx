@@ -258,7 +258,15 @@ export function PecaAbasSetores({
                         <TableCell className="py-2 px-3 text-xs whitespace-nowrap">
                           {formatDate(m.data_entrega)}
                         </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-right whitespace-nowrap">
+                        {/* SPEC-231 C1: todos veem a linha; o valor vem nulo quando a venda é de outra equipe */}
+                        <TableCell
+                          className="py-2 px-3 text-xs text-right whitespace-nowrap"
+                          title={
+                            m.valor_total_orcamento == null && m.orcamento_id
+                              ? 'Valor visível só para a equipe da venda'
+                              : undefined
+                          }
+                        >
                           {formatCurrency(m.valor_total_orcamento)}
                         </TableCell>
                       </TableRow>
