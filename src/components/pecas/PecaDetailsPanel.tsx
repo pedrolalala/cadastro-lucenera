@@ -37,6 +37,8 @@ interface PecaData {
   estoque_reservado?: number
   estoque_disponivel: number
   estoque_showroom?: number | null
+  status_comercial?: string | null
+  fornecedor_nome?: string | null
 }
 
 export function PecaDetailsPanel({
@@ -194,7 +196,9 @@ export function PecaDetailsPanel({
               className="col-span-2 md:col-span-1"
               extra={
                 <span className="text-[11px] text-slate-500">
-                  {peca.marca_nome || 'Marca não informada'} · {peca.categoria || 'Sem categoria'}
+                  {peca.marca_nome || 'Marca não informada'} ·{' '}
+                  {peca.fornecedor_nome ? `Fornecedor: ${peca.fornecedor_nome}` : 'Fornecedor não informado'} ·{' '}
+                  {peca.categoria || 'Sem categoria'}
                   <span
                     className={cn(
                       'ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase',
@@ -203,6 +207,16 @@ export function PecaDetailsPanel({
                   >
                     {peca.ativo ? 'Ativo' : 'Desativada'}
                   </span>
+                  {peca.ativo && peca.status_comercial === 'Fora de Linha' && (
+                    <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase bg-orange-100 text-orange-700">
+                      Fora de linha
+                    </span>
+                  )}
+                  {peca.ativo && peca.status_comercial === 'Lançamento' && (
+                    <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase bg-sky-100 text-sky-700">
+                      Lançamento
+                    </span>
+                  )}
                 </span>
               }
             />

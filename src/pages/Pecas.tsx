@@ -494,6 +494,16 @@ export default function Pecas() {
                                 Desativada
                               </span>
                             )}
+                            {p.ativo !== false && p.status_comercial === 'Fora de Linha' && (
+                              <span className="shrink-0 mt-0.5 text-[9px] text-orange-700 font-bold uppercase whitespace-nowrap px-1 py-0.5 rounded bg-orange-50 border border-orange-200">
+                                Fora de linha
+                              </span>
+                            )}
+                            {p.ativo !== false && p.status_comercial === 'Lançamento' && (
+                              <span className="shrink-0 mt-0.5 text-[9px] text-sky-700 font-bold uppercase whitespace-nowrap px-1 py-0.5 rounded bg-sky-50 border border-sky-200">
+                                Lançamento
+                              </span>
+                            )}
                             {!p.has_estoque && (
                               <span className="shrink-0 mt-0.5 text-[9px] text-amber-600 font-bold uppercase whitespace-nowrap px-1 py-0.5 rounded bg-amber-50">
                                 S/E

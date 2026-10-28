@@ -524,6 +524,9 @@ export interface ProdutoEstoqueRow {
   // NÃO usar estoque_itens(local='Showroom') para isso — o trigger
   // fn_sync_estoque_itens_from_produtos zera essa linha a cada update de produtos.
   estoque_showroom: number
+  // SPEC-235 D/E: Normal | Lançamento | Fora de Linha, e fornecedor (da peça ou, se vazio, da marca)
+  status_comercial: string
+  fornecedor_nome: string | null
 }
 
 // SPEC-193 C1/C3/C4: a Consulta lê a view enxuta `vw_consulta_estoque` (migration 204), que já devolve
@@ -534,7 +537,7 @@ export interface ProdutoEstoqueRow {
 const CONSULTA_COLUNAS = `
   produto_id, codigo_produto, referencia, nome, ativo, preco_venda, valor_venda, marca_nome,
   categoria_nome, estoque_total, estoque_reservado, estoque_disponivel, estoque_showroom,
-  has_estoque, tem_saldo
+  has_estoque, tem_saldo, status_comercial, fornecedor_nome
 `
 
 function linhaConsulta(r: any): ProdutoEstoqueRow {
@@ -554,6 +557,8 @@ function linhaConsulta(r: any): ProdutoEstoqueRow {
     estoque_showroom: Number(r.estoque_showroom) || 0,
     tem_saldo: r.tem_saldo === true,
     ativo: r.ativo !== false,
+    status_comercial: r.status_comercial || 'Normal',
+    fornecedor_nome: r.fornecedor_nome || null,
   }
 }
 
