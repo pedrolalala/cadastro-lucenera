@@ -656,6 +656,10 @@ export function PecaForm({
         setTimeout(() => {
           form.setValue('marca_id', (data as any).marca_id || '', { shouldValidate: false })
           form.setValue('categoria_id', (data as any).categoria_id || '', { shouldValidate: false })
+          // SPEC-237: o fornecedor usa o mesmo SelectField e só passou a vir preenchido com a carga da planilha
+          form.setValue('fornecedor_principal_id', (data as any).fornecedor_principal_id || 'none', {
+            shouldValidate: false,
+          })
         }, 0)
       })
     } else {
