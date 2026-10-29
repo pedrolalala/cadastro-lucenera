@@ -62,6 +62,7 @@ import {
   createMarca,
   createFornecedor,
   podeVerCustoProduto,
+  podeEditarCaixaFechada,
 } from '@/services/produtos'
 
 // Bug achado em QA (2026-08-25): SKU_PREFIX era 'teste' — toda peça nova
@@ -96,6 +97,11 @@ const schema = z.object({
   ipi_entrada: z.coerce.number().min(0).optional().default(0),
   mascara_produto: z.string().optional().default(''),
   status_comercial: z.string().optional().default('Normal'),
+  // SPEC-240: itens por caixa (caixa fechada); vazio = 1 = sem regra
+  multiplo_compra: z.preprocess(
+    (v) => (v === '' || v == null ? 1 : v),
+    z.coerce.number().int('Use um número inteiro').min(1, 'Mínimo 1'),
+  ),
 })
 type FormData = z.infer<typeof schema>
 
@@ -445,6 +451,10 @@ export function PecaForm({
   useEffect(() => {
     podeVerCustoProduto().then(setPodeVerCusto)
   }, [])
+  const [podeEditarCaixa, setPodeEditarCaixa] = useState(false)
+  useEffect(() => {
+    podeEditarCaixaFechada().then(setPodeEditarCaixa)
+  }, [])
 
   const handleDelete = async () => {
     if (!pecaId) return
@@ -494,6 +504,7 @@ export function PecaForm({
       ipi_entrada: 0,
       mascara_produto: '',
       status_comercial: 'Normal',
+      multiplo_compra: 1,
     },
   })
 
@@ -643,6 +654,7 @@ export function PecaForm({
           cest: (data as any).cest || '',
           mascara_produto: (data as any).mascara_produto || '',
           status_comercial: (data as any).status_comercial || 'Normal',
+          multiplo_compra: (data as any).multiplo_compra || 1,
         } as FormData)
         // Bug achado em QA (2026-08-25): form.reset() atualizava
         // control._defaultValues.marca_id/categoria_id corretamente, mas os
@@ -807,6 +819,20 @@ export function PecaForm({
                 <InputField control={form.control} name="unidade" label="Unidade *" />
               </div>
               <InputField control={form.control} name="descricao_tecnica" label="Desc. Técnica" />
+              <div className="grid grid-cols-2 gap-2">
+                <InputField
+                  control={form.control}
+                  name="multiplo_compra"
+                  label="Itens por caixa"
+                  type="number"
+                  readOnly={!podeEditarCaixa}
+                  ajuda={
+                    'Caixa fechada: o pedido de compra arredonda para cima (precisa de 38, caixa de 10 → compra 40). ' +
+                    '1 = sem regra.' +
+                    (podeEditarCaixa ? '' : ' Só a Débora e a administração alteram.')
+                  }
+                />
+              </div>
             </div>
 
             <div className="space-y-1.5 border-2 border-slate-900 rounded-md p-2">

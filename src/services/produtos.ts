@@ -34,6 +34,13 @@ export const CAMPOS_CUSTO = [
   'percentual_lucro',
 ] as const
 
+// SPEC-240: "Itens por caixa" (multiplo_compra) — só a Débora e a administração alteram (o banco também trava).
+export async function podeEditarCaixaFechada(): Promise<boolean> {
+  const { data, error } = await (supabase as any).rpc('pode_editar_caixa_fechada')
+  if (error) return false
+  return data === true
+}
+
 let podeVerCustoCache: Promise<boolean> | null = null
 export function podeVerCustoProduto(): Promise<boolean> {
   if (!podeVerCustoCache) {
