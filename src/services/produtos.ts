@@ -32,6 +32,7 @@ export const CAMPOS_CUSTO = [
   'custo_total',
   'margem_lucro',
   'percentual_lucro',
+  'desconto_caixa_fechada', // SPEC-240 C
 ] as const
 
 // SPEC-240: "Itens por caixa" (multiplo_compra) — só a Débora e a administração alteram (o banco também trava).

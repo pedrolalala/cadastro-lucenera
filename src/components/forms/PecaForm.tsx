@@ -102,6 +102,8 @@ const schema = z.object({
     (v) => (v === '' || v == null ? 1 : v),
     z.coerce.number().int('Use um número inteiro').min(1, 'Mínimo 1'),
   ),
+  // SPEC-240 C: desconto % do fornecedor na caixa fechada (campo de custo)
+  desconto_caixa_fechada: z.coerce.number().min(0, 'Inválido').max(99.99, 'Máximo 99,99').optional().default(0),
 })
 type FormData = z.infer<typeof schema>
 
@@ -505,6 +507,7 @@ export function PecaForm({
       mascara_produto: '',
       status_comercial: 'Normal',
       multiplo_compra: 1,
+      desconto_caixa_fechada: 0,
     },
   })
 
@@ -655,6 +658,7 @@ export function PecaForm({
           mascara_produto: (data as any).mascara_produto || '',
           status_comercial: (data as any).status_comercial || 'Normal',
           multiplo_compra: (data as any).multiplo_compra || 1,
+          desconto_caixa_fechada: (data as any).desconto_caixa_fechada || 0,
         } as FormData)
         // Bug achado em QA (2026-08-25): form.reset() atualizava
         // control._defaultValues.marca_id/categoria_id corretamente, mas os
@@ -832,6 +836,20 @@ export function PecaForm({
                     (podeEditarCaixa ? '' : ' Só a Débora e a administração alteram.')
                   }
                 />
+                {podeVerCusto && (
+                  <InputField
+                    control={form.control}
+                    name="desconto_caixa_fechada"
+                    label="Desconto caixa fechada (%)"
+                    type="number"
+                    readOnly={!podeEditarCaixa}
+                    ajuda={
+                      'Só para peças em que o fornecedor dá desconto na caixa fechada: o pedido de compra já vem com o ' +
+                      'desconto quando a quantidade fecha caixa. 0 = sem desconto.' +
+                      (podeEditarCaixa ? '' : ' Só a Débora e a administração alteram.')
+                    }
+                  />
+                )}
               </div>
             </div>
 
