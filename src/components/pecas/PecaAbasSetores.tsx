@@ -134,7 +134,8 @@ export function PecaAbasSetores({
     const porVenda = new Map<string, { m: MovimentoProdutoRow; qtd: number; ls: string[] }>()
     for (const m of movimentos) {
       // SPEC-243: as abas do sistema mostram só vendas do sistema; as abas "Connect" só as herdadas
-      if ((m.origem === 'connect') !== ehConnect(a)) continue
+      // SPEC-244: Reserva e Entrega Futura seguem separadas por origem; a Separação junta as duas (a herança da Connect agora é operada aqui)
+      if (a !== 'separacao' && (m.origem === 'connect') !== ehConnect(a)) continue
       const q = qtdDoSetor(m, a)
       if (q <= 0) continue
       const chave = m.orcamento_id ?? m.projeto_item_id
