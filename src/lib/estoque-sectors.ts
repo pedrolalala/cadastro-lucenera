@@ -44,6 +44,9 @@ export const SETORES_OBRIGATORIOS = [
   'Reserva',
   'Separação',
   'Entrega Futura',
+  // SPEC-243 (reunião 04/11): a herança da Connect fica em setores próprios, só visualização, separados da Reserva/Entrega Futura do sistema.
+  'Reserva herança Connect',
+  'Entrega futura herança Connect',
   'Amostra / Emprestado',
 ] as const
 
@@ -54,6 +57,9 @@ export interface SetoresSaldosProjeto {
   q_reserva: number
   q_separacao: number
   q_entrega_futura: number
+  // SPEC-243: vendas herdadas da Connect, por cliente (visualização). Não entram na Reserva/Entrega Futura do sistema.
+  q_reserva_connect?: number
+  q_entrega_futura_connect?: number
 }
 
 // SPEC-191 B1 (reunião 08/10, Vinícius): Disponível = Estoque Geral − Reserva −
@@ -115,6 +121,8 @@ export function buildSetoresObrigatorios(
     Reserva: (Number(saldos?.q_reserva) || 0) + doLocal('Reserva'),
     Separação: (Number(saldos?.q_separacao) || 0) + doLocal('Separação'),
     'Entrega Futura': (Number(saldos?.q_entrega_futura) || 0) + doLocal('Entrega Futura'),
+    'Reserva herança Connect': Number(saldos?.q_reserva_connect) || 0,
+    'Entrega futura herança Connect': Number(saldos?.q_entrega_futura_connect) || 0,
     'Amostra / Emprestado': doLocal('Amostra / Emprestado'),
   }
 
@@ -134,7 +142,10 @@ export function buildSetoresObrigatorios(
     reservadoConnect -
     (Number(saldos?.q_reserva) || 0) -
     (Number(saldos?.q_entrega_futura) || 0) -
-    (Number(saldos?.q_separacao) || 0)
+    (Number(saldos?.q_separacao) || 0) -
+    // SPEC-243: o que a Connect já atribuiu a cliente (setores próprios acima) não é mais "sem venda"
+    (Number(saldos?.q_reserva_connect) || 0) -
+    (Number(saldos?.q_entrega_futura_connect) || 0)
   if (heranca > 0.0001) {
     extras.push({ local: 'Reserva sem venda (herança Connect)', quantidade: heranca, extra: true })
   }

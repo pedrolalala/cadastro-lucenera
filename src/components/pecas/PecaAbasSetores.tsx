@@ -20,17 +20,35 @@ import { cn } from '@/lib/utils'
 // filtro; Compras lista os pedidos de compra ativos da peça. SPEC-222: a aba
 // Entregue saiu (histórico que não serve na consulta da peça).
 
-type AbaMovimento = 'reserva' | 'entrega_futura' | 'separacao'
+type AbaMovimento =
+  | 'reserva'
+  | 'entrega_futura'
+  | 'separacao'
+  | 'reserva_connect'
+  | 'entrega_futura_connect'
 type Aba = 'setores' | AbaMovimento | 'compras'
 
 const ABAS_MOVIMENTO: { aba: AbaMovimento; rotulo: string; setor: string }[] = [
   { aba: 'reserva', rotulo: 'Reserva', setor: 'Reserva' },
   { aba: 'entrega_futura', rotulo: 'Entrega Futura', setor: 'Entrega Futura' },
   { aba: 'separacao', rotulo: 'Separação', setor: 'Separação' },
+  // SPEC-243: herança da Connect (só visualização), por cliente e L
+  { aba: 'reserva_connect', rotulo: 'Reserva Connect', setor: 'Reserva herança Connect' },
+  {
+    aba: 'entrega_futura_connect',
+    rotulo: 'Entrega Futura Connect',
+    setor: 'Entrega futura herança Connect',
+  },
 ]
 
+const ehConnect = (a: AbaMovimento) => a === 'reserva_connect' || a === 'entrega_futura_connect'
+
 const qtdDoSetor = (m: MovimentoProdutoRow, aba: AbaMovimento) =>
-  aba === 'reserva' ? m.q_reserva : aba === 'entrega_futura' ? m.q_entrega_futura : m.q_separacao
+  aba === 'reserva' || aba === 'reserva_connect'
+    ? m.q_reserva
+    : aba === 'entrega_futura' || aba === 'entrega_futura_connect'
+      ? m.q_entrega_futura
+      : m.q_separacao
 
 const semPrefixo = (n: string | null | undefined) => (n || '').replace(/^(VENDA|ORC)-/i, '')
 
@@ -115,6 +133,8 @@ export function PecaAbasSetores({
   const linhasDaAba = (a: AbaMovimento) => {
     const porVenda = new Map<string, { m: MovimentoProdutoRow; qtd: number; ls: string[] }>()
     for (const m of movimentos) {
+      // SPEC-243: as abas do sistema mostram só vendas do sistema; as abas "Connect" só as herdadas
+      if ((m.origem === 'connect') !== ehConnect(a)) continue
       const q = qtdDoSetor(m, a)
       if (q <= 0) continue
       const chave = m.orcamento_id ?? m.projeto_item_id
@@ -213,6 +233,12 @@ export function PecaAbasSetores({
               <Vazio texto={`Nenhuma venda com esta peça em ${rotulo}.`} />
             ) : (
               <div className="border rounded-lg overflow-x-auto">
+                {ehConnect(a) && (
+                  <p className="px-3 py-2 text-xs text-sky-900 bg-sky-50 border-b border-sky-200">
+                    Herança da Connect — somente visualização. Não soma na Reserva nem na Entrega
+                    Futura do sistema e não mexe no estoque.
+                  </p>
+                )}
                 <Table>
                   <TableHeader className="bg-slate-100/80">
                     <TableRow>
@@ -267,7 +293,9 @@ export function PecaAbasSetores({
                               : undefined
                           }
                         >
-                          {formatCurrency(m.valor_total_orcamento)}
+                          {ehConnect(a) && !(Number(m.valor_total_orcamento) > 0)
+                            ? '-'
+                            : formatCurrency(m.valor_total_orcamento)}
                         </TableCell>
                       </TableRow>
                     ))}

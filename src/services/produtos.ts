@@ -45,15 +45,15 @@ export async function podeEditarCaixaFechada(): Promise<boolean> {
 let podeVerCustoCache: Promise<boolean> | null = null
 export function podeVerCustoProduto(): Promise<boolean> {
   if (!podeVerCustoCache) {
-    podeVerCustoCache = Promise.resolve(
-      (supabase as any).rpc('pode_ver_custo_produto'),
-    ).then(({ data, error }: any) => {
-      if (error) {
-        podeVerCustoCache = null
-        return false
-      }
-      return data === true
-    })
+    podeVerCustoCache = Promise.resolve((supabase as any).rpc('pode_ver_custo_produto')).then(
+      ({ data, error }: any) => {
+        if (error) {
+          podeVerCustoCache = null
+          return false
+        }
+        return data === true
+      },
+    )
   }
   return podeVerCustoCache
 }
@@ -82,7 +82,11 @@ export async function getProdutos() {
 }
 
 export async function getProduto(id: string) {
-  const { data, error } = await supabase.from('produtos').select(PRODUTO_COLUNAS).eq('id', id).single()
+  const { data, error } = await supabase
+    .from('produtos')
+    .select(PRODUTO_COLUNAS)
+    .eq('id', id)
+    .single()
   if (error) throw error
   // SPEC-193 C2: custo/impostos à parte; quem não é da Administração recebe só os dados da peça.
   const { data: custo } = await (supabase as any)
@@ -271,11 +275,17 @@ export async function getReservasProduto(produtoId: string): Promise<ReservaProd
 
 // SPEC-174 N6c: Reserva, Separação e Entrega Futura somadas por peça
 // (migration 20261002_174f_vw_cadastro_produto_setores). Sem linha = zeros.
-export async function getSetoresProduto(
-  produtoId: string,
-): Promise<{ q_reserva: number; q_separacao: number; q_entrega_futura: number }> {
+export async function getSetoresProduto(produtoId: string): Promise<{
+  q_reserva: number
+  q_separacao: number
+  q_entrega_futura: number
+  q_reserva_connect: number
+  q_entrega_futura_connect: number
+}> {
+  // SPEC-243: Reserva/Separação/Entrega Futura = só vendas do sistema; a Connect vem em colunas próprias
+  // (setores "Reserva herança Connect" e "Entrega futura herança Connect", só visualização).
   const { data, error } = await (supabase.from as any)('vw_cadastro_produto_setores')
-    .select('q_reserva, q_separacao, q_entrega_futura')
+    .select('q_reserva, q_separacao, q_entrega_futura, q_reserva_connect, q_entrega_futura_connect')
     .eq('produto_id', produtoId)
     .maybeSingle()
   if (error) throw error
@@ -283,6 +293,8 @@ export async function getSetoresProduto(
     q_reserva: Number(data?.q_reserva) || 0,
     q_separacao: Number(data?.q_separacao) || 0,
     q_entrega_futura: Number(data?.q_entrega_futura) || 0,
+    q_reserva_connect: Number(data?.q_reserva_connect) || 0,
+    q_entrega_futura_connect: Number(data?.q_entrega_futura_connect) || 0,
   }
 }
 
@@ -310,6 +322,8 @@ export interface MovimentoProdutoRow {
   q_separacao: number
   q_entregue: number
   q_devolvida_entregue: number
+  /** SPEC-243: 'connect' = venda herdada da Connect (só visualização); 'sistema' ou vazio = venda feita aqui. */
+  origem?: string | null
 }
 
 export async function getMovimentosProduto(produtoId: string): Promise<MovimentoProdutoRow[]> {
@@ -449,9 +463,7 @@ export async function getProdutosFiltradosBatched(
       const term = params.searchTerm
       const numeric = term.replace(/[^0-9]/g, '')
       if (numeric) {
-        q = q.or(
-          `nome.ilike.%${term}%,referencia.ilike.%${term}%,codigo_produto.eq.${numeric}`,
-        )
+        q = q.or(`nome.ilike.%${term}%,referencia.ilike.%${term}%,codigo_produto.eq.${numeric}`)
       } else {
         q = q.or(`nome.ilike.%${term}%,referencia.ilike.%${term}%`)
       }
