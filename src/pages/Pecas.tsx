@@ -166,8 +166,8 @@ export default function Pecas() {
           searchTerm: debouncedSearch || undefined,
           marcaId: marcaId || undefined,
           categoriaId: categoriaId || undefined,
-          // SPEC-193 C1: "Só com estoque" filtrado no banco (com busca, mostra todas).
-          soComSaldo: soComEstoque && !debouncedSearch.trim(),
+          // SPEC-193 C1: "Só com estoque" filtrado no banco. SPEC-257 (06/11/2026): vale TAMBÉM com busca (antes, com busca, mostrava as sem estoque).
+          soComSaldo: soComEstoque,
         },
         1000,
         (loaded, total) => {
@@ -192,10 +192,10 @@ export default function Pecas() {
     setVisibleCount(VISIBLE_BATCH)
   }, [debouncedSearch, marcaId, categoriaId, soComEstoque])
 
-  // Filippo (30.02): "quando eu busco tem que aparecer" — com termo de busca o
-  // filtro "Só com estoque" não esconde nada.
+  // SPEC-257 (06/11/2026, decisão do usuário): o "Só com estoque" vale também quando há busca. Antes (pedido do Filippo, "quando eu busco
+  // tem que aparecer") a busca ignorava o filtro; agora, se a busca não acha nada com estoque, a tela avisa e oferece desligar o filtro.
   const buscando = !!debouncedSearch.trim()
-  const filtroEstoqueAtivo = soComEstoque && !buscando
+  const filtroEstoqueAtivo = soComEstoque
   const produtosFiltrados = useMemo(
     () => (filtroEstoqueAtivo ? produtos.filter((p) => p.tem_saldo) : produtos),
     [produtos, filtroEstoqueAtivo],
@@ -339,11 +339,7 @@ export default function Pecas() {
               {loading
                 ? `Carregando... ${progress.loaded}${progress.total ? `/${progress.total}` : ''} peças`
                 : `${visibleItems.length} de ${sortedProdutos.length} registros${
-                    filtroEstoqueAtivo
-                      ? ' com estoque'
-                      : soComEstoque && buscando
-                        ? ' (na busca aparecem também as peças sem estoque)'
-                        : ''
+                    filtroEstoqueAtivo ? ' com estoque' : ''
                   }`}
             </div>
             <div className="overflow-auto flex-1" onScroll={handleScroll}>
@@ -426,8 +422,20 @@ export default function Pecas() {
                           <Box className="w-10 h-10 mb-3 text-slate-300" />
                           <p className="text-slate-600 font-medium">Nenhum produto encontrado</p>
                           <p className="text-sm mt-1">
-                            Tente ajustar os filtros ou limpar a seleção.
+                            {soComEstoque && buscando
+                              ? 'Nenhuma peça com estoque para essa busca. Desligue "Só com estoque" para ver as peças sem estoque.'
+                              : 'Tente ajustar os filtros ou limpar a seleção.'}
                           </p>
+                          {soComEstoque && buscando && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3"
+                              onClick={() => setSoComEstoque(false)}
+                            >
+                              Mostrar também as sem estoque
+                            </Button>
+                          )}
                           {hasActiveFilters && (
                             <Button
                               variant="outline"
