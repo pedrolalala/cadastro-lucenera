@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { buildSetoresObrigatorios, type SetoresSaldosProjeto } from '@/lib/estoque-sectors'
 // SPEC-174 N6c: mesma lista vertical dos 8 setores obrigatórios do painel.
 import { EstoqueSetoresList } from '@/components/pecas/EstoqueSetoresList'
+import { HistoricoPrecoDialog } from '@/components/pecas/HistoricoPrecoDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1061,6 +1062,12 @@ export function PecaForm({
                 sempre dividem a linha de baixo em duas metades (flex-1),
                 cabendo inteiros mesmo com a coluna mais estreita (N6b). */}
             <div className="pt-2 flex flex-col gap-2 mt-auto">
+              {/* SPEC-282: histórico de preço/custo/ST (só quem pode ver custo) */}
+              {pecaId && podeVerCusto === true && (
+                <div className="flex">
+                  <HistoricoPrecoDialog produtoId={pecaId} />
+                </div>
+              )}
               {pecaId && canEdit && (
                 <div className="flex flex-wrap gap-2">
                   <Button
