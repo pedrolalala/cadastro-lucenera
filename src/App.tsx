@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './hooks/use-auth'
 // SPEC-123: code-splitting por rota (mesmo padrão já em produção no RH,
 // dashboard-rh-lucenera-5fe9c/src/App.tsx).
 const Pecas = lazy(() => import('./pages/Pecas'))
+const ReajustePrecos = lazy(() => import('./pages/ReajustePrecos'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Login = lazy(() => import('./pages/Login'))
 
@@ -57,6 +58,7 @@ const ProtectedRoutes = () => {
             <Route path="/projetos" element={<Navigate to="/pecas" replace />} />
             <Route path="/clientes" element={<Navigate to="/pecas" replace />} />
             <Route path="/pecas" element={<Pecas />} />
+            <Route path="/reajuste" element={<ReajustePrecos />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

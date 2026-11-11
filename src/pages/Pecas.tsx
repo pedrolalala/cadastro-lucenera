@@ -23,6 +23,8 @@ import { PecaDetailsPanel } from '@/components/pecas/PecaDetailsPanel'
 import { FilterCombobox } from '@/components/pecas/FilterCombobox'
 // SPEC-174 N7: canEdit decide Editar/Copiar/Excluir e o duplo clique.
 import { useAuth } from '@/hooks/use-auth'
+import { Link } from 'react-router-dom'
+import { supabase } from '@/lib/supabase/client'
 
 const formatCurrency = (v: number | null | undefined) =>
   v == null
@@ -98,6 +100,11 @@ export default function Pecas() {
   // SPEC-174 N7: todo mundo com acesso ao Cadastro consulta produto; só quem
   // tem a ação "editar" (hub_pode_executar) abre a edição pelo duplo clique.
   const { canEdit, canCreate } = useAuth()
+  // SPEC-282: botão "Reajuste de preços" só para administrador (a tela e o banco conferem de novo).
+  const [podeReajustar, setPodeReajustar] = useState(false)
+  useEffect(() => {
+    ;(supabase.rpc as any)('pode_reajustar_precos').then(({ data }: any) => setPodeReajustar(data === true))
+  }, [])
 
   const [produtos, setProdutos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -268,6 +275,12 @@ export default function Pecas() {
         </div>
         {/* SPEC-174 N7 (decisão 02/10): "Nova Peça" só para quem tem a ação
             "criar" no Cadastro (administração + compras). */}
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        {podeReajustar && (
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Link to="/reajuste">Reajuste de preços</Link>
+          </Button>
+        )}
         {canCreate && (
           <Button
             onClick={() => setActiveModal('peca')}
@@ -277,6 +290,7 @@ export default function Pecas() {
             Nova Peça
           </Button>
         )}
+        </div>
       </div>
 
       {/* SPEC-182 (C2, decisão 06/10): a peça selecionada abre numa área larga
