@@ -110,6 +110,20 @@ export async function checkReferenciaExists(referencia: string, excludeId?: stri
   return data.length > 0
 }
 
+/** SPEC-276: devolve QUAL peça já usa a referência (código + nome), para a tela dizer isso em vez de só 'Em uso'. */
+export async function findPecaPorReferencia(referencia: string, excludeId?: string | null) {
+  if (!referencia) return null
+  let query = supabase
+    .from('produtos')
+    .select('id, codigo_produto, nome')
+    .eq('referencia', referencia)
+    .limit(1)
+  if (excludeId) query = query.neq('id', excludeId)
+  const { data, error } = await query
+  if (error) throw error
+  return data[0] ?? null
+}
+
 export async function checkCodigoExists(codigo: number, excludeId?: string | null) {
   let query = supabase.from('produtos').select('id').eq('codigo_produto', codigo)
   if (excludeId) {

@@ -53,7 +53,7 @@ import {
   createProduto,
   updateProduto,
   deleteProduto,
-  checkReferenciaExists,
+  findPecaPorReferencia,
   getFornecedores,
   getMarcas,
   getCategoriasProduto,
@@ -723,8 +723,15 @@ export function PecaForm({
         // SPEC-193 B3: o campo "Referência" grava em `referencia`. `sku` virou coluna gerada no banco
         // (= referencia, só leitura — migration 205) e não pode ser enviado.
         const referencia = v.referencia?.trim() || null
-        if (referencia && (await checkReferenciaExists(referencia, pecaId)))
-          return form.setError('referencia', { message: 'Em uso' })
+        if (referencia) {
+          const emUso = await findPecaPorReferencia(referencia, pecaId)
+          if (emUso) {
+            // SPEC-276: diz qual peça já tem a referência (o orçamento pode ter criado a peça antes).
+            return form.setError('referencia', {
+              message: `Já é a peça ${emUso.codigo_produto} - ${emUso.nome}. Abra e edite essa peça.`,
+            })
+          }
+        }
         const payload = {
           ...v,
           referencia,
