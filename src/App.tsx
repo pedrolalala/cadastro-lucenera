@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from './hooks/use-auth'
 // dashboard-rh-lucenera-5fe9c/src/App.tsx).
 const Pecas = lazy(() => import('./pages/Pecas'))
 const ReajustePrecos = lazy(() => import('./pages/ReajustePrecos'))
+const HistoricoPecas = lazy(() => import('./pages/HistoricoPecas'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Login = lazy(() => import('./pages/Login'))
 
@@ -59,6 +60,7 @@ const ProtectedRoutes = () => {
             <Route path="/clientes" element={<Navigate to="/pecas" replace />} />
             <Route path="/pecas" element={<Pecas />} />
             <Route path="/reajuste" element={<ReajustePrecos />} />
+            <Route path="/historico" element={<HistoricoPecas />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

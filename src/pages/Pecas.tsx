@@ -280,20 +280,14 @@ export default function Pecas() {
             Mesma regra do reajuste de preços: pode_reajustar_precos = administrador. */}
         {podeReajustar && (
           <Button
+            asChild
             variant="outline"
             className="w-full sm:w-auto"
             title={selectedPeca ? 'Histórico de movimentação da peça selecionada' : 'Sem peça selecionada: histórico de todas as peças'}
-            onClick={() =>
-              window.open(
-                selectedPeca?.codigo_produto
-                  ? `https://dashboard-lucenera.pages.dev/movimentacao-item?codigo=${selectedPeca.codigo_produto}`
-                  : 'https://dashboard-lucenera.pages.dev/movimentacao-item?todas=1',
-                '_blank',
-                'noopener',
-              )
-            }
           >
-            Histórico da peça
+            <Link to={selectedPeca?.codigo_produto ? `/historico?codigo=${selectedPeca.codigo_produto}` : '/historico'}>
+              Histórico da peça
+            </Link>
           </Button>
         )}
         {podeReajustar && (
