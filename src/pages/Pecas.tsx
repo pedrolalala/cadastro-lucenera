@@ -276,6 +276,25 @@ export default function Pecas() {
         {/* SPEC-174 N7 (decisão 02/10): "Nova Peça" só para quem tem a ação
             "criar" no Cadastro (administração + compras). */}
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        {/* SPEC-319: histórico de movimentação da peça (kardex) — só administrador (a RPC confere de novo).
+            Mesma regra do reajuste de preços: pode_reajustar_precos = administrador. */}
+        {podeReajustar && (
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={!selectedPeca?.codigo_produto}
+            title={selectedPeca ? 'Abrir o histórico de movimentação da peça selecionada' : 'Selecione uma peça na lista'}
+            onClick={() =>
+              window.open(
+                `https://dashboard-lucenera.pages.dev/movimentacao-item?codigo=${selectedPeca?.codigo_produto}`,
+                '_blank',
+                'noopener',
+              )
+            }
+          >
+            Histórico da peça
+          </Button>
+        )}
         {podeReajustar && (
           <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link to="/reajuste">Reajuste de preços</Link>
