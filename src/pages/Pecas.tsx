@@ -282,11 +282,12 @@ export default function Pecas() {
           <Button
             variant="outline"
             className="w-full sm:w-auto"
-            disabled={!selectedPeca?.codigo_produto}
-            title={selectedPeca ? 'Abrir o histórico de movimentação da peça selecionada' : 'Selecione uma peça na lista'}
+            title={selectedPeca ? 'Histórico de movimentação da peça selecionada' : 'Sem peça selecionada: histórico de todas as peças'}
             onClick={() =>
               window.open(
-                `https://dashboard-lucenera.pages.dev/movimentacao-item?codigo=${selectedPeca?.codigo_produto}`,
+                selectedPeca?.codigo_produto
+                  ? `https://dashboard-lucenera.pages.dev/movimentacao-item?codigo=${selectedPeca.codigo_produto}`
+                  : 'https://dashboard-lucenera.pages.dev/movimentacao-item?todas=1',
                 '_blank',
                 'noopener',
               )
